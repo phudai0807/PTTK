@@ -1,0 +1,23 @@
+<%@ page pageEncoding="UTF-8" import="java.time.LocalDate,java.time.format.DateTimeParseException" %>
+<%!
+    private static LocalDate reportDate(String value) {
+        String message = "Hãy chọn ngày bắt đầu và ngày kết thúc hợp lệ.";
+        if (value == null || !value.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}") || value.startsWith("0000-")) {
+            throw new IllegalArgumentException(message);
+        }
+        try {
+            return LocalDate.parse(value);
+        } catch (DateTimeParseException exception) {
+            throw new IllegalArgumentException(message, exception);
+        }
+    }
+
+    private static LocalDate[] reportPeriod(String fromInput, String toInput) {
+        LocalDate from = reportDate(fromInput);
+        LocalDate to = reportDate(toInput);
+        if (from.isAfter(to)) {
+            throw new IllegalArgumentException("Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.");
+        }
+        return new LocalDate[] {from, to};
+    }
+%>

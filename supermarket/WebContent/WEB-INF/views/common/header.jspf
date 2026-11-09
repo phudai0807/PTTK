@@ -1,0 +1,45 @@
+<%@ page pageEncoding="UTF-8" import="java.sql.SQLException,vn.pttk.supermarket.dao.ManagerDAO1,vn.pttk.supermarket.web.Html1" %>
+<%
+    response.setHeader("Cache-Control", "no-store");
+    var menuSession = request.getSession(false);
+    Object menuManagerId = menuSession == null ? null : menuSession.getAttribute("managerId");
+    boolean menuIsManager = Boolean.TRUE.equals(request.getAttribute("reportManagerAuthorized"));
+    if (!menuIsManager && menuManagerId instanceof Long) {
+        try {
+            menuIsManager = new ManagerDAO1().hasReportAccess((Long) menuManagerId);
+        } catch (SQLException exception) {
+            application.log("Cannot verify the role for the navigation menu.", exception);
+        }
+    }
+    Object menuLogoutToken = menuSession == null ? null : menuSession.getAttribute("managerLogoutToken");
+%>
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title><%= Html1.escape(request.getAttribute("pageTitle")) %> | Siêu thị</title>
+    <link rel="stylesheet" href="<%= request.getContextPath() %>/assets/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Chuyển đến nội dung</a>
+<header class="topbar">
+    <div class="container nav">
+        <a class="brand" href="<%= request.getContextPath() %>/"><span class="mark" aria-hidden="true">S</span> Siêu thị</a>
+        <nav aria-label="Menu chính">
+            <% if (menuIsManager) { %>
+            <a href="<%= request.getContextPath() %>/bao-cao">Báo cáo thống kê</a>
+            <% if (menuLogoutToken != null) { %>
+            <form action="<%= request.getContextPath() %>/quan-ly/dang-xuat" method="post">
+                <input type="hidden" name="token" value="<%= Html1.escape(menuLogoutToken) %>">
+                <button type="submit">Đăng xuất</button>
+            </form>
+            <% } %>
+            <% } else { %>
+            <a href="<%= request.getContextPath() %>/dang-ky">Đăng ký thành viên</a>
+            <a href="<%= request.getContextPath() %>/quan-ly/dang-nhap">Đăng nhập quản lý</a>
+            <% } %>
+        </nav>
+    </div>
+</header>
+<main id="main" class="container">
