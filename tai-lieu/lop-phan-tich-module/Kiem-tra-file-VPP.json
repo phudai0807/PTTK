@@ -1,0 +1,15 @@
+{
+  "integrity": "ok",
+  "class_models": 18,
+  "boundary_classes": 7,
+  "business_and_result_classes": 11,
+  "attributes": 97,
+  "public_operations": 7,
+  "diagrams": 4,
+  "orthogonal_connector_views": 22,
+  "orthogonal_segments": 33,
+  "source_files_unchanged": 24,
+  "entity_attributes_and_relationships_match_previous_analysis": true,
+  "no_connector_crosses_unrelated_class": true,
+  "native_export": "All four diagrams exported by installed Visual Paradigm and visually inspected."
+}

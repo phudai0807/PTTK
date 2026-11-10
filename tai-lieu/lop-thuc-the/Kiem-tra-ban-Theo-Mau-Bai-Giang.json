@@ -1,0 +1,19 @@
+{
+  "integrity": "ok",
+  "analysis_classes": 17,
+  "persistent_entities": 16,
+  "conceptual_report_classes": 1,
+  "java_record_appendix_classes": 2,
+  "class_models_total": 19,
+  "main_associations_and_compositions": 25,
+  "generalizations": 1,
+  "generalization_superclass": "Item1",
+  "generalization_subclass": "ItemStatistics1",
+  "diagrams": 8,
+  "private_attributes": 102,
+  "orthogonal_connector_views": 67,
+  "orthogonal_segments": 95,
+  "existing_relationship_models_unchanged": true,
+  "schema_text_sha256_unchanged": "119cc2a9633139553366c9c40eaef3de96c2d3ececd50688ff286202f9775e8a",
+  "native_export": "All eight diagrams exported and visually inspected."
+}

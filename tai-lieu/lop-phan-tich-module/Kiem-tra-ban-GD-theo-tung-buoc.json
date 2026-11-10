@@ -1,0 +1,17 @@
+{
+  "integrity": "ok",
+  "class_models": 18,
+  "GD_boundary_class_models": 7,
+  "public_operation_models": 7,
+  "private_attribute_models": 97,
+  "relationship_models": 22,
+  "diagrams": 8,
+  "step_1_diagrams_hide_attributes": true,
+  "step_2_diagrams_show_interface_fields": true,
+  "final_diagrams_include_entities_and_operations": true,
+  "orthogonal_connector_views": 30,
+  "orthogonal_segments": 41,
+  "source_files_unchanged": 24,
+  "previous_entity_attributes_and_operations_unchanged": true,
+  "verification": "All 8 diagrams exported by Visual Paradigm and visually inspected."
+}
