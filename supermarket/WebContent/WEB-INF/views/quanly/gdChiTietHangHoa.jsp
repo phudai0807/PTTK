@@ -1,5 +1,5 @@
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
-<%@ page import="java.math.BigDecimal,java.sql.SQLException,java.util.List,java.time.format.DateTimeFormatter,java.util.stream.Collectors" %>
+<%@ page import="java.math.BigDecimal,java.sql.SQLException,java.util.ArrayList,java.time.format.DateTimeFormatter" %>
 <%@ page import="vn.pttk.supermarket.dao.ItemRevenueDAO1,vn.pttk.supermarket.model.Item1,vn.pttk.supermarket.model.RelatedTransaction1" %>
 <%@ include file="report-get.jspf" %>
 <%@ include file="report-period.jspf" %>
@@ -20,14 +20,14 @@
     String fromInput = request.getParameter("from");
     String toInput = request.getParameter("to");
     Item1 item = null;
-    List<RelatedTransaction1> transactions = null;
+    ArrayList<RelatedTransaction1> transactions = null;
     String error = null;
     int status = 200;
     try {
         LocalDate[] period = reportPeriod(fromInput, toInput);
         long itemId = reportItemId(request.getParameter("item"));
         ItemRevenueDAO1 dao = new ItemRevenueDAO1();
-        item = dao.findItem(itemId).orElse(null);
+        item = dao.findItem(itemId);
         if (item == null) {
             status = 404;
             error = "Không tìm thấy hàng hóa.";
@@ -56,9 +56,9 @@
 <%@ include file="../common/header.jspf" %>
 <section class="page-title">
     <a href="<%= request.getContextPath() %>/thong-ke/hang-hoa?from=<%= Html1.escape(request.getAttribute("from")) %>&amp;to=<%= Html1.escape(request.getAttribute("to")) %>">← Quay lại kết quả thống kê</a>
-    <h1><%= Html1.escape(item.name()) %></h1>
-    <p><strong><%= Html1.escape(item.code()) %></strong> · <%= Html1.escape(item.unit()) %></p>
-    <p><%= Html1.escape(item.description()) %></p>
+    <h1><%= Html1.escape(item.getName()) %></h1>
+    <p><strong><%= Html1.escape(item.getCode()) %></strong> · <%= Html1.escape(item.getUnit()) %></p>
+    <p><%= Html1.escape(item.getDescription()) %></p>
 </section>
 <section class="panel report-detail">
     <h2>Danh sách giao dịch liên quan</h2>
@@ -67,8 +67,12 @@
     <% if (transactions.isEmpty()) { %>
     <p class="notice">Hàng hóa này chưa có giao dịch trong khoảng thời gian đã chọn.</p>
     <% } else { %>
-    <% BigDecimal itemRevenue = transactions.stream().map(RelatedTransaction1::itemAmount)
-            .reduce(BigDecimal.ZERO, BigDecimal::add); %>
+    <%
+        BigDecimal itemRevenue = BigDecimal.ZERO;
+        for (RelatedTransaction1 transaction : transactions) {
+            itemRevenue = itemRevenue.add(transaction.getItemAmount());
+        }
+    %>
     <p>Doanh thu mặt hàng trong kỳ <strong><%= Html1.money(itemRevenue) %></strong></p>
     <div class="table-wrap">
         <table>
@@ -84,20 +88,29 @@
             <tbody>
             <% for (RelatedTransaction1 row : transactions) { %>
             <tr>
-                <td><%= Html1.escape(row.code()) %>
-                    <% if (row.refund()) { %>
-                    <br><span class="hint">Giao dịch gốc <%= Html1.escape(row.originalSaleCode()) %></span>
+                <td><%= Html1.escape(row.getCode()) %>
+                    <% if (row.isRefund()) { %>
+                    <br><span class="hint">Giao dịch gốc <%= Html1.escape(row.getOriginalSaleCode()) %></span>
                     <% } %>
                 </td>
-                <td><%= row.occurredAt().format(dateTime) %></td>
-                <td><%= row.refund() ? "Hoàn tiền" : ("ONLINE".equals(row.channel()) ? "Bán trực tuyến" : "Bán tại quầy") %></td>
-                <td class="numeric"><%= Html1.number(row.quantity()) %> <%= Html1.escape(item.unit()) %></td>
-                <td class="numeric"><%= row.refund() ? "—" : row.unitPrices().stream().map(Html1::money).collect(Collectors.joining("<br>")) %></td>
-                <td class="numeric"><%= Html1.money(row.grossAmount()) %></td>
-                <td class="numeric"><%= Html1.money(row.discountAmount()) %></td>
-                <td class="numeric"><%= Html1.money(row.refundAmount()) %></td>
-                <td class="numeric"><%= Html1.money(row.itemAmount()) %></td>
-                <td class="numeric"><%= Html1.money(row.transactionTotal()) %></td>
+                <td><%= row.getOccurredAt().format(dateTime) %></td>
+                <td><%= row.isRefund() ? "Hoàn tiền" : ("ONLINE".equals(row.getChannel()) ? "Bán trực tuyến" : "Bán tại quầy") %></td>
+                <td class="numeric"><%= Html1.number(row.getQuantity()) %> <%= Html1.escape(item.getUnit()) %></td>
+                <td class="numeric">
+                    <% if (row.isRefund()) { %>
+                    —
+                    <% } else { %>
+                    <% for (int priceIndex = 0; priceIndex < row.getUnitPrices().size(); priceIndex++) { %>
+                    <% if (priceIndex > 0) { %><br><% } %>
+                    <%= Html1.money(row.getUnitPrices().get(priceIndex)) %>
+                    <% } %>
+                    <% } %>
+                </td>
+                <td class="numeric"><%= Html1.money(row.getGrossAmount()) %></td>
+                <td class="numeric"><%= Html1.money(row.getDiscountAmount()) %></td>
+                <td class="numeric"><%= Html1.money(row.getRefundAmount()) %></td>
+                <td class="numeric"><%= Html1.money(row.getItemAmount()) %></td>
+                <td class="numeric"><%= Html1.money(row.getTransactionTotal()) %></td>
             </tr>
             <% } %>
             </tbody>

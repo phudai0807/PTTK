@@ -1,7 +1,8 @@
 <%@ page pageEncoding="UTF-8" import="java.sql.SQLException,vn.pttk.supermarket.dao.ManagerDAO1,vn.pttk.supermarket.web.Html1" %>
+<%@ page import="jakarta.servlet.http.HttpSession" %>
 <%
     response.setHeader("Cache-Control", "no-store");
-    var menuSession = request.getSession(false);
+    HttpSession menuSession = request.getSession(false);
     Object menuManagerId = menuSession == null ? null : menuSession.getAttribute("managerId");
     boolean menuIsManager = Boolean.TRUE.equals(request.getAttribute("reportManagerAuthorized"));
     if (!menuIsManager && menuManagerId instanceof Long) {

@@ -1,7 +1,7 @@
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" session="false" %>
 <%@ page import="java.sql.SQLException,java.util.LinkedHashMap,java.util.Locale,java.util.regex.Pattern" %>
+<%@ page import="jakarta.servlet.http.HttpSession" %>
 <%@ page import="vn.pttk.supermarket.dao.CustomerDAO1,vn.pttk.supermarket.model.Customer1,vn.pttk.supermarket.web.PasswordHash1" %>
-<%@ page import="vn.pttk.supermarket.dao.CustomerDAO1.RegistrationResult1" %>
 <%!
     private static final Pattern EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
     private static final Pattern PHONE = Pattern.compile("(?:0|\\+?84)[35789][0-9]{8}");
@@ -18,7 +18,7 @@
     }
     request.setCharacterEncoding("UTF-8");
     response.setHeader("Cache-Control", "no-store");
-    var registrationSession = request.getSession(false);
+    HttpSession registrationSession = request.getSession(false);
     String token = registrationSession == null ? null
             : (String) registrationSession.getAttribute("registrationToken");
     if (token == null || !token.equals(request.getParameter("token"))) {
@@ -32,7 +32,7 @@
     String email = field(request.getParameter("email")).toLowerCase(Locale.ROOT);
     String address = field(request.getParameter("address"));
     String password = request.getParameter("password");
-    var errors = new LinkedHashMap<String, String>();
+    LinkedHashMap<String, String> errors = new LinkedHashMap<String, String>();
     if (fullName.isBlank() || fullName.length() > 120) {
         errors.put("fullName", "Nhập họ tên từ 1 đến 120 ký tự.");
     }
@@ -52,14 +52,19 @@
     int status = 400;
     if (errors.isEmpty()) {
         try {
-            Customer1 customer = new Customer1(fullName, compactPhone, email, address, PasswordHash1.create(password));
-            RegistrationResult1 result = new CustomerDAO1().register(customer);
-            if (result == RegistrationResult1.CREATED) {
+            Customer1 customer = new Customer1();
+            customer.setFullName(fullName);
+            customer.setPhone(compactPhone);
+            customer.setEmail(email);
+            customer.setAddress(address);
+            customer.setPasswordHash(PasswordHash1.create(password));
+            int result = new CustomerDAO1().register(customer);
+            if (result == CustomerDAO1.CREATED) {
                 registrationSession.setAttribute("registrationSuccess", true);
                 response.sendRedirect(request.getContextPath() + "/dang-ky");
                 return;
             }
-            if (result == RegistrationResult1.DUPLICATE_PHONE) {
+            if (result == CustomerDAO1.DUPLICATE_PHONE) {
                 errors.put("phone", "Số điện thoại này đã được đăng ký thành viên.");
             } else {
                 errors.put("email", "Email này đã tồn tại trong hệ thống.");

@@ -1,11 +1,11 @@
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
-<%@ page import="java.math.BigDecimal,java.sql.SQLException,java.time.ZoneId,java.time.format.DateTimeFormatter,java.util.List" %>
+<%@ page import="java.math.BigDecimal,java.sql.SQLException,java.time.ZoneId,java.time.format.DateTimeFormatter,java.util.ArrayList" %>
 <%@ page import="vn.pttk.supermarket.dao.ItemRevenueDAO1,vn.pttk.supermarket.model.ItemRevenue1" %>
 <%@ include file="report-get.jspf" %>
 <%@ include file="report-period.jspf" %>
 <%
     request.setAttribute("pageTitle", "Thống kê hàng hóa theo doanh thu");
-    List<ItemRevenue1> results = null;
+    ArrayList<ItemRevenue1> results = null;
     LocalDate[] period = null;
     String reportPath = request.getContextPath() + "/thong-ke/hang-hoa";
     String fromInput = request.getParameter("from");
@@ -65,9 +65,9 @@
         BigDecimal totalDiscount = BigDecimal.ZERO;
         BigDecimal totalRefund = BigDecimal.ZERO;
         for (ItemRevenue1 row : results) {
-            totalGross = totalGross.add(row.grossAmount());
-            totalDiscount = totalDiscount.add(row.discountAmount());
-            totalRefund = totalRefund.add(row.refundAmount());
+            totalGross = totalGross.add(row.getGrossAmount());
+            totalDiscount = totalDiscount.add(row.getDiscountAmount());
+            totalRefund = totalRefund.add(row.getRefundAmount());
         }
         BigDecimal totalRevenue = totalGross.subtract(totalDiscount).subtract(totalRefund);
     %>
@@ -98,27 +98,27 @@
             <tbody>
             <% for (ItemRevenue1 row : results) { %>
             <tr>
-                <td><%= Html1.escape(row.code()) %></td>
-                <td><a href="<%= reportPath %>/chi-tiet?item=<%= row.itemId() %>&amp;from=<%= Html1.escape(request.getAttribute("from")) %>&amp;to=<%= Html1.escape(request.getAttribute("to")) %>"><%= Html1.escape(row.name()) %></a></td>
+                <td><%= Html1.escape(row.getCode()) %></td>
+                <td><a href="<%= reportPath %>/chi-tiet?item=<%= row.getItemId() %>&amp;from=<%= Html1.escape(request.getAttribute("from")) %>&amp;to=<%= Html1.escape(request.getAttribute("to")) %>"><%= Html1.escape(row.getName()) %></a></td>
                 <td>
-                    <% if (row.supplierLabels().isEmpty()) { %>
+                    <% if (row.getSupplierLabels().isEmpty()) { %>
                     <span class="hint">Chưa có phiếu nhập</span>
                     <% } else { %>
                     <ul class="supplier-list">
-                        <% for (String supplier : row.supplierLabels()) { %>
+                        <% for (String supplier : row.getSupplierLabels()) { %>
                         <li><%= Html1.escape(supplier) %></li>
                         <% } %>
                     </ul>
                     <% } %>
                 </td>
-                <td><%= Html1.escape(row.unit()) %></td>
-                <td class="numeric"><%= Html1.number(row.quantity()) %></td>
-                <td class="numeric"><%= Html1.number(row.returnedQuantity()) %></td>
-                <td class="numeric"><%= Html1.number(row.transactionCount()) %></td>
-                <td class="numeric"><%= Html1.money(row.grossAmount()) %></td>
-                <td class="numeric"><%= Html1.money(row.discountAmount()) %></td>
-                <td class="numeric"><%= Html1.money(row.refundAmount()) %></td>
-                <td class="numeric"><%= Html1.money(row.revenue()) %></td>
+                <td><%= Html1.escape(row.getUnit()) %></td>
+                <td class="numeric"><%= Html1.number(row.getQuantity()) %></td>
+                <td class="numeric"><%= Html1.number(row.getReturnedQuantity()) %></td>
+                <td class="numeric"><%= Html1.number(row.getTransactionCount()) %></td>
+                <td class="numeric"><%= Html1.money(row.getGrossAmount()) %></td>
+                <td class="numeric"><%= Html1.money(row.getDiscountAmount()) %></td>
+                <td class="numeric"><%= Html1.money(row.getRefundAmount()) %></td>
+                <td class="numeric"><%= Html1.money(row.getRevenue()) %></td>
             </tr>
             <% } %>
             </tbody>

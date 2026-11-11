@@ -1251,4 +1251,126 @@ CREATE OR REPLACE VIEW inventory_lot_trace1 AS
     JOIN goods_receipts1 r ON r.id = l.receipt_id
     LEFT JOIN sale_transactions1 t ON t.online_order_id = m.order_id;
 
+-- Stored functions used by the JSP/DAO modules.
+-- List results use refcursor so PostgreSQL JDBC can read them through CallableStatement.
+CREATE OR REPLACE FUNCTION register_member1(
+    p_full_name text, p_phone text, p_email text, p_address text, p_password_hash text
+) RETURNS integer LANGUAGE plpgsql AS $$
+DECLARE
+    inserted_count integer;
+    violated_constraint text;
+BEGIN
+    INSERT INTO customers1 (full_name, phone, email, address, password_hash, is_member)
+    VALUES (p_full_name, normalize_customer_phone(p_phone), p_email, p_address, p_password_hash, true)
+    ON CONFLICT (email) DO NOTHING;
+    GET DIAGNOSTICS inserted_count = ROW_COUNT;
+    IF inserted_count = 1 THEN
+        RETURN 1;
+    END IF;
+    RETURN 3;
+EXCEPTION WHEN unique_violation THEN
+    GET STACKED DIAGNOSTICS violated_constraint = CONSTRAINT_NAME;
+    IF violated_constraint = 'uq_member_phone1' THEN
+        RETURN 2;
+    END IF;
+    RAISE;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION find_management_account1(p_employee_code text, p_username text)
+RETURNS refcursor LANGUAGE plpgsql AS $$
+DECLARE
+    result_cursor refcursor;
+BEGIN
+    OPEN result_cursor FOR
+        SELECT id, role, password_hash
+        FROM employees1
+        WHERE employee_code = p_employee_code OR username = p_username
+        LIMIT 2;
+    RETURN result_cursor;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION has_report_access1(p_employee_id bigint)
+RETURNS boolean LANGUAGE sql AS $$
+    SELECT EXISTS (
+        SELECT 1 FROM employees1
+        WHERE id = p_employee_id AND role = 'MANAGEMENT' AND password_hash IS NOT NULL
+    );
+$$;
+
+CREATE OR REPLACE FUNCTION get_item_revenue1(p_from timestamp, p_until timestamp)
+RETURNS refcursor LANGUAGE plpgsql AS $$
+DECLARE
+    result_cursor refcursor;
+BEGIN
+    OPEN result_cursor FOR
+        WITH item_totals AS (
+            SELECT item_id, COALESCE(SUM(quantity) FILTER (WHERE NOT is_refund), 0) AS quantity,
+                   COALESCE(SUM(quantity) FILTER (WHERE is_refund), 0) AS returned_quantity,
+                   COUNT(DISTINCT transaction_id) FILTER (WHERE NOT is_refund) AS transaction_count,
+                   SUM(gross_amount) AS gross_amount, SUM(discount_amount) AS discount_amount,
+                   SUM(refund_amount) AS refund_amount
+            FROM item_revenue_events1
+            WHERE occurred_at >= p_from AND occurred_at < p_until
+            GROUP BY item_id
+        )
+        SELECT i.id, i.item_code, i.name, i.unit, totals.quantity, totals.returned_quantity,
+               totals.transaction_count, totals.gross_amount, totals.discount_amount, totals.refund_amount,
+               ARRAY(
+                   SELECT s.supplier_code || ' · ' || s.name
+                   FROM suppliers1 s
+                   WHERE EXISTS (
+                       SELECT 1
+                       FROM goods_receipts1 r
+                       JOIN goods_receipt_details1 d ON d.receipt_id = r.id
+                       WHERE r.supplier_id = s.id AND d.item_id = i.id AND r.posted_at < p_until
+                   )
+                   ORDER BY s.supplier_code
+               ) AS suppliers
+        FROM item_totals totals
+        JOIN items1 i ON i.id = totals.item_id
+        ORDER BY totals.gross_amount - totals.discount_amount - totals.refund_amount DESC, i.item_code;
+    RETURN result_cursor;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION find_item1(p_item_id bigint)
+RETURNS refcursor LANGUAGE plpgsql AS $$
+DECLARE
+    result_cursor refcursor;
+BEGIN
+    OPEN result_cursor FOR
+        SELECT id, item_code, name, unit, description FROM items1 WHERE id = p_item_id;
+    RETURN result_cursor;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION get_related_transactions1(
+    p_item_id bigint, p_from timestamp, p_until timestamp
+) RETURNS refcursor LANGUAGE plpgsql AS $$
+DECLARE
+    result_cursor refcursor;
+BEGIN
+    OPEN result_cursor FOR
+        WITH selected_events AS (
+            SELECT transaction_id, transaction_code, event_code, occurred_at, channel, is_refund,
+                   SUM(quantity) AS item_quantity,
+                   ARRAY_AGG(DISTINCT unit_price ORDER BY unit_price) AS unit_prices,
+                   SUM(gross_amount) AS gross_amount, SUM(discount_amount) AS discount_amount,
+                   SUM(refund_amount) AS refund_amount
+            FROM item_revenue_events1
+            WHERE occurred_at >= p_from AND occurred_at < p_until AND item_id = p_item_id
+            GROUP BY transaction_id, transaction_code, event_code, occurred_at, channel, is_refund
+        )
+        SELECT s.*, CASE WHEN s.is_refund THEN -s.refund_amount ELSE (
+            SELECT SUM(d.line_total - d.discount_amount)
+            FROM sale_transaction_details1 d WHERE d.transaction_id = s.transaction_id
+        ) END AS transaction_total
+        FROM selected_events s
+        ORDER BY s.occurred_at DESC, s.event_code, s.is_refund;
+    RETURN result_cursor;
+END;
+$$;
+
 COMMIT;

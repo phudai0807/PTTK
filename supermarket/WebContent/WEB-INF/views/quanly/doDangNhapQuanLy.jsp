@@ -1,5 +1,6 @@
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" session="false" %>
-<%@ page import="java.sql.SQLException,java.util.Optional,java.util.UUID,vn.pttk.supermarket.dao.ManagerDAO1" %>
+<%@ page import="java.sql.SQLException,java.util.UUID,vn.pttk.supermarket.dao.ManagerDAO1" %>
+<%@ page import="jakarta.servlet.http.HttpSession" %>
 <%
     response.setHeader("Cache-Control", "no-store");
     if (!"POST".equals(request.getMethod())) {
@@ -8,7 +9,7 @@
         return;
     }
     request.setCharacterEncoding("UTF-8");
-    var loginSession = request.getSession(false);
+    HttpSession loginSession = request.getSession(false);
     Object token = loginSession == null ? null : loginSession.getAttribute("managerLoginToken");
     if (token == null || !token.equals(request.getParameter("token"))) {
         response.sendError(403, "Hãy mở lại trang đăng nhập rồi thử lại.");
@@ -26,10 +27,10 @@
     if (!identifier.isEmpty() && identifier.length() <= 30 && password != null
             && !password.isEmpty() && password.length() <= 128) {
         try {
-            Optional<Long> managerId = new ManagerDAO1().authenticate(identifier, password);
-            if (managerId.isPresent()) {
+            Long managerId = new ManagerDAO1().authenticate(identifier, password);
+            if (managerId != null) {
                 request.changeSessionId();
-                loginSession.setAttribute("managerId", managerId.get());
+                loginSession.setAttribute("managerId", managerId);
                 loginSession.setAttribute("managerLogoutToken", UUID.randomUUID().toString());
                 loginSession.removeAttribute("managerLoginToken");
                 response.sendRedirect(request.getContextPath() + "/bao-cao");

@@ -1,8 +1,31 @@
 # Hệ thống quản lý siêu thị trực tuyến
 
-Ứng dụng Java Web cho hai module **Đăng ký thành viên** và **Thống kê hàng hóa theo doanh thu**. Database PostgreSQL chứa các bảng của toàn bộ hệ thống siêu thị. Theo cách tổ chức trong giáo trình, các trang JSP nhận yêu cầu và gọi DAO trực tiếp. DAO chạy câu lệnh SQL qua JDBC.
+Ứng dụng Java Web cho hai module **Đăng ký thành viên** và **Thống kê hàng hóa theo doanh thu**. Database PostgreSQL chứa các bảng của toàn bộ hệ thống siêu thị. Theo cách tổ chức trong giáo trình, các trang JSP nhận yêu cầu và gọi DAO trực tiếp. Các lớp `CustomerDAO1`, `ManagerDAO1` và `ItemRevenueDAO1` kế thừa `DAO1`, sử dụng JDBC `CallableStatement` để gọi các hàm lưu trữ trong `database/schema.sql`.
 
-## Chạy trên máy hiện tại
+`DAO1` quản lý kết nối PostgreSQL dùng chung. Các thao tác DAO khóa trên `DAO1.class` và kết thúc giao dịch bằng `commit` hoặc `rollback`. Các hàm trả danh sách dùng `refcursor`, được đọc hết trong giao dịch rồi đóng. Model là lớp Java thông thường có constructor, getter và setter. DAO trả `ArrayList` hoặc đối tượng, dùng `null` khi không tìm thấy một đối tượng.
+
+## Build và triển khai lại trên Linux
+
+Sau khi cài JDK 21, chạy từ thư mục `supermarket`:
+
+```bash
+bash build-local.sh
+cp build/supermarket.war runtime/tomcat-linux/webapps/supermarket.war
+```
+
+Lệnh `cp` áp dụng cho Tomcat đã cấu hình với `CATALINA_BASE` là
+`runtime/tomcat-linux`. Tomcat với cấu hình triển khai tự động mặc định sẽ nạp
+lại WAR khi file thay đổi. Nếu Tomcat đang dừng, khởi động lại bằng lệnh đã dùng
+trước đó, trong terminal có các biến `SUPERMARKET_DB_URL`, `SUPERMARKET_DB_USER`
+và `SUPERMARKET_DB_PASSWORD`. Mở <http://localhost:8080/supermarket/> nếu giữ
+cổng mặc định của Tomcat.
+
+Script biên dịch vào thư mục tạm mới mỗi lần build và đóng gói các file `.class`
+vào `WEB-INF/classes/vn/pttk/supermarket/...`. Đây là vị trí Tomcat dùng để tìm
+các lớp Java của ứng dụng. Đặt thư mục `vn` ở gốc WAR sẽ gây lỗi JSP như
+`ManagerDAO1 cannot be resolved to a type` hoặc `Html1 cannot be resolved`.
+
+## Chạy trên Windows
 
 Nhấp đúp `Start.cmd` trong File Explorer để chạy ứng dụng và mở trang chủ trong trình duyệt.
 
@@ -114,8 +137,8 @@ Các thao tác này được triển khai ở PostgreSQL. Việc gửi yêu cầ
 
 | Module | Luồng JSP | DAO và bảng sử dụng |
 |---|---|---|
-| Đăng ký thành viên | `gdDangKyThanhVien.jsp` gửi biểu mẫu tới `doDangKyThanhVien.jsp` | JSP xử lý gọi `CustomerDAO1.register` để ghi `customers1` |
-| Thống kê hàng hóa | `gdChonThongKe.jsp` → `gdThongKeHangHoa.jsp` → `gdChiTietHangHoa.jsp` | `ItemRevenueDAO1` đọc `items1` và view `item_revenue_events1`, lấy dữ liệu từ `sale_transactions1`, `sale_transaction_details1` và `sale_refunds1`. Bảng tổng hợp đọc thêm `suppliers1`, `goods_receipts1` và `goods_receipt_details1`. |
+| Đăng ký thành viên | `gdDangKyThanhVien.jsp` gửi biểu mẫu tới `doDangKyThanhVien.jsp` | JSP gọi `CustomerDAO1.register`. DAO gọi hàm `register_member1` để ghi `customers1`. |
+| Thống kê hàng hóa | `gdChonThongKe.jsp` → `gdThongKeHangHoa.jsp` → `gdChiTietHangHoa.jsp` | `ItemRevenueDAO1` gọi `get_item_revenue1`, `find_item1` và `get_related_transactions1`. Các hàm đọc `items1`, `item_revenue_events1` và lịch sử nhập từ nhà cung cấp. |
 
 Mã Java nằm trong `src`, chia thành các package `model` (dữ liệu), `dao` (truy cập PostgreSQL) và `web` (tiện ích JSP). Các trang JSP được chia theo nhóm người dùng trong `WebContent/WEB-INF/views`.
 

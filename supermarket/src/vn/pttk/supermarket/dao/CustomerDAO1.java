@@ -1,33 +1,38 @@
 package vn.pttk.supermarket.dao;
 
 import vn.pttk.supermarket.model.Customer1;
-import org.postgresql.util.PSQLException;
+import java.sql.CallableStatement;
 import java.sql.SQLException;
+import java.sql.Types;
 
-public final class CustomerDAO1 {
-    public enum RegistrationResult1 { CREATED, DUPLICATE_PHONE, DUPLICATE_EMAIL }
+public class CustomerDAO1 extends DAO1 {
+    public static final int CREATED = 1;
+    public static final int DUPLICATE_PHONE = 2;
+    public static final int DUPLICATE_EMAIL = 3;
 
-    public RegistrationResult1 register(Customer1 customer) throws SQLException {
-        String sql = """
-                INSERT INTO customers1 (full_name, phone, email, address, password_hash, is_member)
-                VALUES (?, normalize_customer_phone(?), ?, ?, ?, true)
-                ON CONFLICT (email) DO NOTHING
-                """;
-        try (var connection = Database1.open();
-             var statement = connection.prepareStatement(sql)) {
-            statement.setString(1, customer.fullName());
-            statement.setString(2, customer.phone());
-            statement.setString(3, customer.email());
-            statement.setString(4, customer.address());
-            statement.setString(5, customer.passwordHash());
-            return statement.executeUpdate() == 1 ? RegistrationResult1.CREATED : RegistrationResult1.DUPLICATE_EMAIL;
-        } catch (PSQLException exception) {
-            var error = exception.getServerErrorMessage();
-            if ("23505".equals(exception.getSQLState()) && error != null
-                    && "uq_member_phone1".equals(error.getConstraint())) {
-                return RegistrationResult1.DUPLICATE_PHONE;
+    public CustomerDAO1() throws SQLException {
+        super();
+    }
+
+    public int register(Customer1 customer) throws SQLException {
+        String sql = "{? = call register_member1(?, ?, ?, ?, ?)}";
+        synchronized (DAO1.class) {
+            ensureConnection();
+            try (CallableStatement statement = con.prepareCall(sql)) {
+                statement.registerOutParameter(1, Types.INTEGER);
+                statement.setString(2, customer.getFullName());
+                statement.setString(3, customer.getPhone());
+                statement.setString(4, customer.getEmail());
+                statement.setString(5, customer.getAddress());
+                statement.setString(6, customer.getPasswordHash());
+                statement.execute();
+                int result = statement.getInt(1);
+                con.commit();
+                return result;
+            } catch (SQLException exception) {
+                rollback(exception);
+                throw exception;
             }
-            throw exception;
         }
     }
 }
