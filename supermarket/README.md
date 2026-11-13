@@ -64,6 +64,7 @@ Các bảng có hậu tố `1`. Khi chạy `schema.sql` trên bản cũ, Postgre
 ```mermaid
 erDiagram
     CUSTOMERS1 ||--o{ ONLINE_ORDERS1 : dat
+    CUSTOMERS1 ||--o| MEMBER_ACCOUNT_VERIFICATIONS1 : xac_minh_so_dien_thoai
     EMPLOYEES1 o|--o{ ONLINE_ORDERS1 : xu_ly
     EMPLOYEES1 o|--o{ ONLINE_ORDERS1 : giao
     SUPPLIERS1 ||--o{ GOODS_RECEIPTS1 : cung_cap
@@ -90,7 +91,7 @@ erDiagram
     SALE_TRANSACTIONS1 o|--o{ INVENTORY_MOVEMENTS1 : ban_tai_quay
 ```
 
-- `customers1` lưu khách hàng và trạng thái thành viên. Khi đăng ký, email được chuyển về chữ thường và số di động Việt Nam được lưu ở dạng `0…`. Chỉ mục duy nhất áp dụng cho số điện thoại của thành viên và nhận diện các cách viết tương đương như `+84…`. Nếu database cũ đã có hai thành viên trùng số sau chuẩn hóa, cần xử lý hai hồ sơ trước khi chạy lại schema. Bản cục bộ kiểm tra định dạng và trùng số. Xác minh quyền sở hữu số qua SMS cần được thiết lập khi triển khai đăng nhập hoặc khôi phục tài khoản bằng số điện thoại.
+- `customers1` lưu khách hàng và trạng thái thành viên. Khi đăng ký, email được chuyển về chữ thường và số di động Việt Nam được lưu ở dạng `0…`. Chỉ mục duy nhất áp dụng cho số điện thoại của thành viên và nhận diện các cách viết tương đương như `+84…`. Nếu database cũ đã có hai thành viên trùng số sau chuẩn hóa, cần xử lý hai hồ sơ trước khi chạy lại schema. `member_account_verifications1` giữ tối đa một yêu cầu thiết lập tài khoản cho mỗi thành viên.
 - `employees1` dùng chung cho các vai trò `MANAGEMENT`, `WAREHOUSE`, `SALER` và `DELIVERY`. Trường `username` lưu tên đăng nhập và `password_hash` lưu bản băm mật khẩu của tài khoản đã thiết lập. Báo cáo kiểm tra phiên đăng nhập và vai trò `MANAGEMENT` trên mỗi yêu cầu.
 - Một giao dịch bán tại quầy tham chiếu nhân viên bán hàng. Khi đơn trực tuyến chuyển sang `COMPLETED`, PostgreSQL yêu cầu đúng một giao dịch có chi tiết khớp đơn.
 - PostgreSQL tính `line_total` từ số lượng và đơn giá trước giảm giá. `discount_amount` lưu giảm giá của cả dòng bán hoặc dòng đặt hàng và mặc định bằng 0 cho dữ liệu cũ. `sale_refunds1` lưu từng khoản hoàn theo dòng bán gốc.
@@ -119,11 +120,25 @@ Chạy `database/verify-workflows.sql` trong Query Tool trên database demo đ�
 - **Thanh toán.** Gọi `record_sale_payment(code, sale_id, method, amount, requested_at[, external_reference])` cho mỗi khoản thu. Sau khi có kết quả, gọi `resolve_sale_payment(payment_id, status, resolved_at)` với `SUCCEEDED` hoặc `FAILED`. Mỗi giao dịch bán đã ghi có thể có nhiều khoản thu bằng `CASH`, `CARD`, `BANK_TRANSFER` hoặc `E_WALLET`. Cột `external_reference` lưu mã đối soát bên ngoài. Với đơn online trả trước, có thể lưu thời điểm thu thực tế khi đã tạo giao dịch bán. View `sale_payment_balances1` cho biết tiền đã thu, còn phải thu, đã hoàn và thực thu. Các giao dịch cũ chưa có bản ghi thanh toán hiển thị các khoản này là `NULL`.
 - **Hoàn tiền.** Dùng `record_sale_refund(code, sale_detail_id, requested_at, quantity, total_amount, allocations_json)`. Mỗi phần tử JSON có `payment_id` và `amount`, ví dụ `[{"payment_id":10,"amount":4000},{"payment_id":11,"amount":6000}]` cho khoản hoàn 10.000 ₫ chia về hai khoản đã thu. Sau khi xác nhận kết quả của khoản hoàn, gọi `resolve_sale_refund(refund_id, status, resolved_at)`. Báo cáo chỉ trừ khoản hoàn thành công vào ngày xác nhận. Các khoản đang chờ giữ hạn mức, khoản thất bại giải phóng hạn mức. Dữ liệu hoàn tiền cũ vẫn dùng ngày hoàn đã lưu.
 - **Lô hàng.** Bật `items1.track_lots` cho mặt hàng cần quản lý lô. Trước khi xác nhận phiếu nhập, thêm các dòng vào `inventory_lots1` với `receipt_id`, `item_id`, `lot_code`, `expires_on` và `received_quantity`. Tổng số lượng theo lô phải khớp dòng nhập. Khi xuất, hệ thống chọn lô còn hạn có hạn dùng gần nhất trước. Nếu hủy đơn đã xuất và nhận lại hàng, hệ thống trả lại đúng các lô đã xuất. Xem tồn theo lô trong `inventory_lot_balances1` và truy vết giao dịch về phiếu nhập, nhà cung cấp trong `inventory_lot_trace1`. Tồn cũ chưa có chứng từ lô vẫn được giữ trong tổng tồn và không có mã lô suy diễn. Với mặt hàng bắt buộc theo lô, chỉ tồn có lô hợp lệ được xuất.
-- **Thành viên tại quầy.** Tra hồ sơ theo số đã chuẩn hóa bằng `normalize_customer_phone`, rồi truyền `customer_id` ở đối số thứ năm của `record_counter_sale`. Bỏ đối số này khi khách mua vãng lai. View `customer_purchases1` gom giao dịch mua tại quầy có liên kết thành viên và giao dịch online có khách hàng.
+- **Thành viên tại quầy.** Gọi `record_counter_sale` với họ tên và số điện thoại để ghi nhận thành viên theo số và liên kết giao dịch. Gọi bản bốn đối số khi khách mua vãng lai. Bản nhận `customer_id` vẫn hỗ trợ khách đã được tra cứu trước.
 
 Các thao tác này được triển khai ở PostgreSQL. Việc gửi yêu cầu thu hoặc hoàn tiền thật cần tích hợp dịch vụ thanh toán. Các giao dịch hoàn tiền sau bán chỉ điều chỉnh doanh thu và tiền thu. Việc đưa hàng trả về tồn bán được thuộc bước kiểm tra hàng của kho.
 
+## Thiết kế dữ liệu đặt hàng trực tuyến
+
+`place_online_order1` trong PostgreSQL tạo đơn chờ xử lý và gắn với hồ sơ thành viên theo số điện thoại giao hàng. Nếu số chưa có hồ sơ thành viên, hàm tạo hồ sơ cùng giao dịch lưu đơn. Hồ sơ tạo theo số điện thoại có thể để trống email và mật khẩu. Giao diện web của dự án triển khai hai module bên dưới.
+
+## Thiết lập tài khoản cho thành viên đã có số điện thoại
+
+1. Khi tích hợp SMS, dịch vụ tạo mã ngẫu nhiên và ID yêu cầu mới. Dịch vụ gọi `begin_member_account_setup1` với số điện thoại, ID và HMAC-SHA-256 của mã và ID yêu cầu. Khóa HMAC được giữ tại dịch vụ. Sau khi giao dịch SQL trả về `ISSUED` và được xác nhận, dịch vụ gửi mã đến số đã chuẩn hóa. Hàm áp dụng cho hồ sơ thành viên chưa có mật khẩu.
+2. Khi khách nhập mã, dịch vụ tính lại HMAC và gọi `verify_member_account_phone1`. Mã có hiệu lực 5 phút và bị khóa sau 5 lần nhập sai. Lần cấp mới thay thế yêu cầu trước, cách lần gần nhất ít nhất 1 phút và tối đa 5 lần trong một cửa sổ 1 giờ tính từ lần cấp đầu. Dịch vụ xác nhận giao dịch SQL cả khi nhận `INCORRECT_CODE` để lưu số lần nhập sai.
+3. Khi nhận `VERIFIED`, dịch vụ cấp cho khách một token ngẫu nhiên dùng một lần, có hiệu lực 10 phút. Dịch vụ tạo token có ít nhất 32 byte ngẫu nhiên và chỉ truyền bản băm SHA-256 vào cơ sở dữ liệu. Sau khi khách nhập email và mật khẩu, dịch vụ gọi `complete_member_account_setup1` với ID yêu cầu, bản băm token, email và bản băm mật khẩu PBKDF2 cùng định dạng với `PasswordHash1`. Nếu email trùng, khách có thể chọn email khác trong thời gian token còn hiệu lực.
+4. Khi nhận `COMPLETED`, email, bản băm mật khẩu và thời điểm hoàn tất được lưu trên đúng dòng `customers1` hiện có. Mã khách hàng và các đơn, giao dịch đã gắn với mã đó được giữ nguyên. Yêu cầu xác minh bị xóa. Dịch vụ đăng nhập khách hàng sau này có thể dùng `find_member_account1` để tra cứu theo email chuẩn hóa và kiểm tra mật khẩu ở máy chủ.
+
+PostgreSQL lưu bản kiểm tra mã SMS và bản băm token. Chỉ cấp quyền gọi các hàm phù hợp cho dịch vụ phía máy chủ và dùng phản hồi chung khi yêu cầu gửi mã để hạn chế việc dò số thành viên. Gửi SMS, đăng nhập khách hàng và khôi phục mật khẩu là các phần tích hợp ngoài hai module Java Web hiện tại. Biểu mẫu đăng ký thành viên đang dùng tiếp tục báo trùng khi khách nhập số đã có hồ sơ.
+
 ## Chạy thử hai module
+
 
 1. Chọn **Đăng ký thành viên**, nhập dữ liệu thử với email và số điện thoại mới, rồi nhấn **Thêm**. Kiểm tra thông báo thành công và bản ghi mới trong `customers1`. Thử email khác với cùng số ở dạng `+84…` để kiểm tra thông báo trùng ngay dưới trường số điện thoại.
 2. Chọn **Báo cáo thống kê** và đăng nhập bằng tên `quanly` hoặc mã nhân viên `QL01`. Script khởi động cục bộ tạo mật khẩu demo ở `runtime/manager.password` khi thiết lập tài khoản lần đầu. Sau đó chọn **Thống kê hàng hóa theo doanh thu**, đặt ngày từ **01/11/2026** đến **03/11/2026** hoặc nhấn liên kết xem mẫu. Kết quả gồm:
@@ -137,13 +152,13 @@ Các thao tác này được triển khai ở PostgreSQL. Việc gửi yêu cầ
 
 | Module | Luồng JSP | DAO và bảng sử dụng |
 |---|---|---|
-| Đăng ký thành viên | `gdDangKyThanhVien.jsp` gửi biểu mẫu tới `doDangKyThanhVien.jsp` | JSP gọi `CustomerDAO1.register`. DAO gọi hàm `register_member1` để ghi `customers1`. |
-| Thống kê hàng hóa | `gdChonThongKe.jsp` → `gdThongKeHangHoa.jsp` → `gdChiTietHangHoa.jsp` | `ItemRevenueDAO1` gọi `get_item_revenue1`, `find_item1` và `get_related_transactions1`. Các hàm đọc `items1`, `item_revenue_events1` và lịch sử nhập từ nhà cung cấp. |
+| Đăng ký thành viên | `gdMemberRegistration.jsp` gửi biểu mẫu tới `doMemberRegistration.jsp` | JSP gọi `CustomerDAO1.register`. DAO gọi hàm `register_member1` để ghi `customers1`. |
+| Thống kê hàng hóa | `gdStatisticsMenu.jsp` → `gdItemStatistics.jsp` → `gdItemDetails.jsp` | `ItemRevenueDAO1` gọi `get_item_revenue1`, `find_item1` và `get_related_transactions1`. Các hàm đọc `items1`, `item_revenue_events1` và lịch sử nhập từ nhà cung cấp. |
 
 Mã Java nằm trong `src`, chia thành các package `model` (dữ liệu), `dao` (truy cập PostgreSQL) và `web` (tiện ích JSP). Các trang JSP được chia theo nhóm người dùng trong `WebContent/WEB-INF/views`.
 
-- `khachhang` chứa trang đăng ký thành viên và trang xử lý lưu.
-- `quanly` chứa menu báo cáo, trang thống kê, trang chi tiết giao dịch và các đoạn xử lý bộ lọc dùng chung trong báo cáo.
+- `customer` chứa trang đăng ký thành viên và trang xử lý lưu.
+- `manager` chứa menu báo cáo, trang thống kê, trang chi tiết giao dịch và các đoạn xử lý bộ lọc dùng chung trong báo cáo.
 - `common` chứa phần đầu và chân trang dùng chung.
 
 `WEB-INF/web.xml` ánh xạ URL trực tiếp đến từng trang JSP trong nhóm tương ứng.

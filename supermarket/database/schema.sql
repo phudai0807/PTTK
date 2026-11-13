@@ -27,13 +27,17 @@ CREATE TABLE IF NOT EXISTS customers1 (
     id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     full_name varchar(120) NOT NULL CHECK (btrim(full_name) <> ''),
     phone varchar(20) NOT NULL CHECK (btrim(phone) <> ''),
-    email varchar(254) NOT NULL UNIQUE CHECK (email = lower(btrim(email)) AND email <> ''),
-    address varchar(300) NOT NULL CHECK (btrim(address) <> ''),
+    email varchar(254) UNIQUE CHECK (email = lower(btrim(email)) AND email <> ''),
+    address varchar(300) CHECK (btrim(address) <> ''),
     password_hash varchar(255),
     is_member boolean NOT NULL DEFAULT false,
-    created_at timestamp NOT NULL DEFAULT LOCALTIMESTAMP,
-    CHECK (NOT is_member OR password_hash IS NOT NULL)
+    created_at timestamp NOT NULL DEFAULT LOCALTIMESTAMP
 );
+
+-- Phone-only members may have no email, password or address.
+ALTER TABLE customers1 ALTER COLUMN email DROP NOT NULL,
+    ALTER COLUMN address DROP NOT NULL, DROP CONSTRAINT IF EXISTS customers1_check,
+    DROP CONSTRAINT IF EXISTS customers_check;
 
 -- Canonicalize local and international spellings of Vietnamese mobile numbers.
 -- Keep other legacy numbers readable and index their compact spelling.
@@ -45,6 +49,26 @@ $$;
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_member_phone1
     ON customers1 (normalize_customer_phone(phone)) WHERE is_member;
+
+ALTER TABLE customers1 ADD COLUMN IF NOT EXISTS account_setup_at timestamptz;
+
+CREATE TABLE IF NOT EXISTS member_account_verifications1 (
+    customer_id bigint PRIMARY KEY REFERENCES customers1(id) ON DELETE CASCADE,
+    challenge_id uuid NOT NULL UNIQUE,
+    phone varchar(10) NOT NULL CHECK (phone ~ '^0[35789][0-9]{8}$'),
+    code_digest bytea CHECK (octet_length(code_digest) = 32),
+    issued_at timestamptz NOT NULL,
+    failed_attempts smallint NOT NULL DEFAULT 0 CHECK (failed_attempts BETWEEN 0 AND 5),
+    request_window_started_at timestamptz NOT NULL CHECK (request_window_started_at <= issued_at),
+    requests_in_window smallint NOT NULL CHECK (requests_in_window BETWEEN 1 AND 5),
+    verified_at timestamptz,
+    setup_token_digest bytea CHECK (octet_length(setup_token_digest) = 32),
+    CHECK (
+        (verified_at IS NULL AND code_digest IS NOT NULL AND setup_token_digest IS NULL)
+        OR (verified_at IS NOT NULL AND verified_at >= issued_at
+            AND code_digest IS NULL AND setup_token_digest IS NOT NULL)
+    )
+);
 
 CREATE TABLE IF NOT EXISTS employees1 (
     id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -115,6 +139,10 @@ CREATE TABLE IF NOT EXISTS online_orders1 (
     warehouse_staff_id bigint REFERENCES employees1(id),
     delivery_staff_id bigint REFERENCES employees1(id)
 );
+
+-- A guest order keeps delivery details on the order itself.
+ALTER TABLE online_orders1 ALTER COLUMN customer_id DROP NOT NULL;
+ALTER TABLE online_orders1 ADD COLUMN IF NOT EXISTS delivery_name varchar(120);
 
 CREATE TABLE IF NOT EXISTS online_order_details1 (
     order_id bigint NOT NULL REFERENCES online_orders1(id),
@@ -327,10 +355,10 @@ BEGIN
         RETURN NEW;
     END IF;
     IF OLD.status <> 'PENDING' AND ROW(
-        NEW.customer_id, NEW.order_code, NEW.ordered_at, NEW.delivery_address, NEW.delivery_phone,
+        NEW.customer_id, NEW.order_code, NEW.ordered_at, NEW.delivery_address, NEW.delivery_phone, NEW.delivery_name,
         NEW.warehouse_staff_id, NEW.delivery_staff_id
     ) IS DISTINCT FROM ROW(
-        OLD.customer_id, OLD.order_code, OLD.ordered_at, OLD.delivery_address, OLD.delivery_phone,
+        OLD.customer_id, OLD.order_code, OLD.ordered_at, OLD.delivery_address, OLD.delivery_phone, OLD.delivery_name,
         OLD.warehouse_staff_id, OLD.delivery_staff_id
     ) THEN
         RAISE EXCEPTION 'The details and staff of a processed order are immutable.' USING ERRCODE = '23514';
@@ -1276,6 +1304,275 @@ EXCEPTION WHEN unique_violation THEN
     RAISE;
 END;
 $$;
+
+DROP FUNCTION IF EXISTS issue_membership_code1(bigint, text, text, text);
+DROP FUNCTION IF EXISTS register_member1(text, text, text, text, text, text);
+ALTER TABLE customers1 DROP COLUMN IF EXISTS membership_code_hash,
+    DROP COLUMN IF EXISTS membership_code_expires_at;
+
+CREATE OR REPLACE FUNCTION member_for_sale1(p_full_name text, p_phone text, p_address text)
+RETURNS bigint LANGUAGE plpgsql AS $$
+DECLARE
+    phone_number text := normalize_customer_phone(p_phone);
+    member_id bigint;
+BEGIN
+    IF phone_number IS NULL OR phone_number !~ '^0[35789][0-9]{8}$' THEN
+        RAISE EXCEPTION 'A valid mobile number is required.' USING ERRCODE = 'P1003';
+    END IF;
+
+    INSERT INTO customers1 (full_name, phone, address, is_member)
+    VALUES (p_full_name, phone_number, p_address, true)
+    ON CONFLICT (normalize_customer_phone(phone)) WHERE is_member
+    DO UPDATE SET is_member = true
+    RETURNING id INTO member_id;
+    RETURN member_id;
+END;
+$$;
+
+-- The four-argument counter-sale entry point still handles anonymous purchases.
+CREATE OR REPLACE FUNCTION record_counter_sale(
+    p_transaction_code varchar, p_saler_id bigint, p_sold_at timestamp, p_lines jsonb,
+    p_full_name text, p_phone text
+) RETURNS bigint LANGUAGE plpgsql AS $$
+DECLARE
+    member_id bigint;
+BEGIN
+    IF nullif(btrim(p_phone), '') IS NOT NULL THEN
+        member_id := member_for_sale1(coalesce(nullif(btrim(p_full_name), ''), 'Khách hàng'), p_phone, NULL);
+    END IF;
+    RETURN record_counter_sale(p_transaction_code, p_saler_id, p_sold_at, p_lines, member_id);
+END;
+$$;
+
+DROP FUNCTION IF EXISTS place_online_order1(text, text, text, text, text, text, bigint, bigint[], integer[]);
+
+CREATE OR REPLACE FUNCTION place_online_order1(
+    p_code text, p_full_name text, p_phone text, p_address text,
+    p_items bigint[], p_quantities integer[]
+) RETURNS bigint LANGUAGE plpgsql AS $$
+DECLARE
+    v_customer_id bigint;
+    v_order_id bigint;
+    line record;
+    phone text := normalize_customer_phone(p_phone);
+BEGIN
+    IF cardinality(p_items) IS NULL OR cardinality(p_items) = 0
+        OR cardinality(p_items) IS DISTINCT FROM cardinality(p_quantities)
+        OR EXISTS (
+            SELECT 1 FROM unnest(p_items, p_quantities) AS requested(item_id, quantity)
+            WHERE requested.item_id IS NULL OR requested.quantity IS NULL OR requested.quantity NOT BETWEEN 1 AND 99
+        )
+        OR cardinality(p_items) <> (SELECT count(DISTINCT id) FROM unnest(p_items) AS item(id)) THEN
+        RAISE EXCEPTION 'Invalid order lines.' USING ERRCODE = 'P1001';
+    END IF;
+
+    FOR line IN SELECT item.id, item.active, item.stock_quantity, selection.quantity
+        FROM unnest(p_items, p_quantities) AS selection(id, quantity)
+        LEFT JOIN items1 item ON item.id = selection.id
+        ORDER BY selection.id
+    LOOP
+        IF line.id IS NULL OR NOT line.active OR line.stock_quantity < line.quantity THEN
+            RAISE EXCEPTION 'Item unavailable.' USING ERRCODE = 'P1001';
+        END IF;
+    END LOOP;
+
+    v_customer_id := member_for_sale1(p_full_name, phone, p_address);
+
+    INSERT INTO online_orders1 (order_code, customer_id, ordered_at, delivery_name, delivery_address, delivery_phone)
+    VALUES (p_code, v_customer_id, clock_timestamp() AT TIME ZONE 'Asia/Ho_Chi_Minh', p_full_name, p_address, phone)
+    RETURNING id INTO v_order_id;
+
+    INSERT INTO online_order_details1 (order_id, item_id, quantity, unit_price)
+    SELECT v_order_id, item.id, selection.quantity, item.current_price
+    FROM unnest(p_items, p_quantities) AS selection(id, quantity)
+    JOIN items1 item ON item.id = selection.id
+    WHERE item.active AND item.stock_quantity >= selection.quantity
+    ORDER BY item.id;
+    IF (SELECT count(*) FROM online_order_details1 detail WHERE detail.order_id = v_order_id)
+        <> cardinality(p_items) THEN
+        RAISE EXCEPTION 'Item unavailable.' USING ERRCODE = 'P1001';
+    END IF;
+    RETURN v_order_id;
+END;
+$$;
+
+-- The trusted SMS service generates the code and sends it after the issue transaction commits.
+-- The database receives an HMAC of the code bound to the challenge, with the key held by that service.
+CREATE OR REPLACE FUNCTION begin_member_account_setup1(
+    p_phone text, p_challenge_id uuid, p_code_digest bytea
+) RETURNS text LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, pg_temp AS $$
+DECLARE
+    normalized_phone text := public.normalize_customer_phone(p_phone);
+    member_id bigint;
+    previous_request public.member_account_verifications1%ROWTYPE;
+    issued_time timestamptz;
+    window_start timestamptz;
+    request_count smallint;
+BEGIN
+    IF normalized_phone IS NULL OR normalized_phone !~ '^0[35789][0-9]{8}$'
+       OR p_challenge_id IS NULL OR octet_length(p_code_digest) IS DISTINCT FROM 32 THEN
+        RETURN 'INVALID_REQUEST';
+    END IF;
+
+    -- All setup steps serialize on the member row.
+    SELECT id INTO member_id FROM public.customers1
+    WHERE is_member AND public.normalize_customer_phone(phone) = normalized_phone AND password_hash IS NULL
+    FOR UPDATE;
+    IF NOT FOUND THEN
+        RETURN 'INELIGIBLE';
+    END IF;
+
+    SELECT * INTO previous_request FROM public.member_account_verifications1 WHERE customer_id = member_id;
+    issued_time := clock_timestamp();
+    window_start := issued_time;
+    request_count := 1;
+    IF FOUND THEN
+        IF previous_request.challenge_id = p_challenge_id THEN
+            RETURN 'INVALID_REQUEST';
+        END IF;
+        IF issued_time < previous_request.issued_at + interval '1 minute' THEN
+            RETURN 'RATE_LIMITED';
+        END IF;
+        IF issued_time < previous_request.request_window_started_at + interval '1 hour' THEN
+            IF previous_request.requests_in_window = 5 THEN
+                RETURN 'RATE_LIMITED';
+            END IF;
+            window_start := previous_request.request_window_started_at;
+            request_count := previous_request.requests_in_window + 1;
+        END IF;
+    END IF;
+
+    INSERT INTO public.member_account_verifications1 (
+        customer_id, challenge_id, phone, code_digest, issued_at, request_window_started_at, requests_in_window
+    ) VALUES (member_id, p_challenge_id, normalized_phone, p_code_digest, issued_time, window_start, request_count)
+    ON CONFLICT (customer_id) DO UPDATE SET
+        challenge_id = EXCLUDED.challenge_id,
+        phone = EXCLUDED.phone,
+        code_digest = EXCLUDED.code_digest,
+        issued_at = EXCLUDED.issued_at,
+        request_window_started_at = EXCLUDED.request_window_started_at,
+        requests_in_window = EXCLUDED.requests_in_window,
+        failed_attempts = 0,
+        verified_at = NULL,
+        setup_token_digest = NULL;
+    RETURN 'ISSUED';
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION verify_member_account_phone1(
+    p_challenge_id uuid, p_code_digest bytea, p_setup_token_digest bytea
+) RETURNS text LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, pg_temp AS $$
+DECLARE
+    member_row public.customers1%ROWTYPE;
+    verification public.member_account_verifications1%ROWTYPE;
+    verified_time timestamptz;
+BEGIN
+    IF p_challenge_id IS NULL OR octet_length(p_code_digest) IS DISTINCT FROM 32
+       OR octet_length(p_setup_token_digest) IS DISTINCT FROM 32 THEN
+        RETURN 'INVALID_REQUEST';
+    END IF;
+
+    SELECT c.* INTO member_row
+    FROM public.customers1 c JOIN public.member_account_verifications1 v ON v.customer_id = c.id
+    WHERE v.challenge_id = p_challenge_id AND c.is_member AND c.password_hash IS NULL
+    FOR UPDATE OF c;
+    IF NOT FOUND THEN
+        RETURN 'INVALID_CHALLENGE';
+    END IF;
+
+    SELECT * INTO verification FROM public.member_account_verifications1
+    WHERE customer_id = member_row.id AND challenge_id = p_challenge_id;
+    IF NOT FOUND OR verification.phone IS DISTINCT FROM public.normalize_customer_phone(member_row.phone)
+       OR verification.verified_at IS NOT NULL THEN
+        RETURN 'INVALID_CHALLENGE';
+    END IF;
+
+    verified_time := clock_timestamp();
+    IF verified_time >= verification.issued_at + interval '5 minutes' THEN
+        RETURN 'EXPIRED';
+    END IF;
+    IF verification.failed_attempts >= 5 THEN
+        RETURN 'ATTEMPTS_EXHAUSTED';
+    END IF;
+    IF verification.code_digest <> p_code_digest THEN
+        UPDATE public.member_account_verifications1
+        SET failed_attempts = failed_attempts + 1 WHERE customer_id = member_row.id;
+        RETURN 'INCORRECT_CODE';
+    END IF;
+
+    UPDATE public.member_account_verifications1
+    SET code_digest = NULL, verified_at = verified_time, setup_token_digest = p_setup_token_digest
+    WHERE customer_id = member_row.id;
+    RETURN 'VERIFIED';
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION complete_member_account_setup1(
+    p_challenge_id uuid, p_setup_token_digest bytea, p_email text, p_password_hash text
+) RETURNS text LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, pg_temp AS $$
+DECLARE
+    member_row public.customers1%ROWTYPE;
+    verification public.member_account_verifications1%ROWTYPE;
+    normalized_email text := lower(btrim(p_email));
+    completed_time timestamptz;
+BEGIN
+    IF p_challenge_id IS NULL OR octet_length(p_setup_token_digest) IS DISTINCT FROM 32 THEN
+        RETURN 'INVALID_REQUEST';
+    END IF;
+
+    SELECT c.* INTO member_row
+    FROM public.customers1 c JOIN public.member_account_verifications1 v ON v.customer_id = c.id
+    WHERE v.challenge_id = p_challenge_id AND c.is_member AND c.password_hash IS NULL
+    FOR UPDATE OF c;
+    IF NOT FOUND THEN
+        RETURN 'INVALID_CHALLENGE';
+    END IF;
+
+    SELECT * INTO verification FROM public.member_account_verifications1
+    WHERE customer_id = member_row.id AND challenge_id = p_challenge_id;
+    IF NOT FOUND OR verification.phone IS DISTINCT FROM public.normalize_customer_phone(member_row.phone)
+       OR verification.setup_token_digest IS DISTINCT FROM p_setup_token_digest THEN
+        RETURN 'INVALID_CHALLENGE';
+    END IF;
+
+    completed_time := clock_timestamp();
+    IF completed_time >= verification.verified_at + interval '10 minutes' THEN
+        RETURN 'EXPIRED';
+    END IF;
+    IF normalized_email IS NULL OR length(normalized_email) > 254
+       OR normalized_email !~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$'
+       OR p_password_hash IS NULL
+       OR p_password_hash !~ '^pbkdf2-sha256[$]600000[$][A-Za-z0-9+/]{22}==[$][A-Za-z0-9+/]{43}=$' THEN
+        RETURN 'INVALID_CREDENTIALS';
+    END IF;
+
+    BEGIN
+        UPDATE public.customers1
+        SET email = normalized_email, password_hash = p_password_hash, account_setup_at = completed_time
+        WHERE id = member_row.id;
+    EXCEPTION WHEN unique_violation THEN
+        RETURN 'DUPLICATE_EMAIL';
+    END;
+
+    DELETE FROM public.member_account_verifications1 WHERE customer_id = member_row.id;
+    RETURN 'COMPLETED';
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION find_member_account1(p_email text)
+RETURNS TABLE(customer_id bigint, password_hash varchar) LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, pg_temp AS $$
+    SELECT c.id, c.password_hash FROM public.customers1 c
+    WHERE c.email = lower(btrim(p_email)) AND c.is_member AND c.password_hash IS NOT NULL;
+$$;
+
+REVOKE ALL ON TABLE member_account_verifications1 FROM PUBLIC;
+REVOKE ALL ON FUNCTION begin_member_account_setup1(text, uuid, bytea),
+    verify_member_account_phone1(uuid, bytea, bytea),
+    complete_member_account_setup1(uuid, bytea, text, text), find_member_account1(text) FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION find_management_account1(p_employee_code text, p_username text)
 RETURNS refcursor LANGUAGE plpgsql AS $$

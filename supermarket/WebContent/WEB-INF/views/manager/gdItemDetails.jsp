@@ -45,7 +45,7 @@
     if (error != null) {
         response.setStatus(status);
         request.setAttribute("error", error);
-        request.getRequestDispatcher("/WEB-INF/views/quanly/gdThongKeHangHoa.jsp").forward(request, response);
+        request.getRequestDispatcher("/WEB-INF/views/manager/gdItemStatistics.jsp").forward(request, response);
         return;
     }
     request.setAttribute("from", fromInput);

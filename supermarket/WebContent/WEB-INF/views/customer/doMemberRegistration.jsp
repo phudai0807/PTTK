@@ -65,7 +65,7 @@
                 return;
             }
             if (result == CustomerDAO1.DUPLICATE_PHONE) {
-                errors.put("phone", "Số điện thoại này đã được đăng ký thành viên.");
+                errors.put("phone", "Số điện thoại này đã có hồ sơ thành viên.");
             } else {
                 errors.put("email", "Email này đã tồn tại trong hệ thống.");
             }
@@ -84,5 +84,5 @@
     request.setAttribute("token", token);
     request.setAttribute("errors", errors);
     response.setStatus(status);
-    request.getRequestDispatcher("/WEB-INF/views/khachhang/gdDangKyThanhVien.jsp").forward(request, response);
+    request.getRequestDispatcher("/WEB-INF/views/customer/gdMemberRegistration.jsp").forward(request, response);
 %>

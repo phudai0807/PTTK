@@ -73,3 +73,5 @@ Tách n-n bằng GoodsReceiptDetail1, OnlineOrderDetail1, SaleTransactionDetail1
 - Dependency: RelatedTransaction1 dùng dữ liệu Item1, SaleTransaction1, SaleTransactionDetail1, SaleRefund1 để tạo các dòng kết quả; không thêm khóa ngoại hoặc ép kế thừa.
 
 Trang 0.1 của VPP là mô hình tham chiếu này và ẩn phương thức như pha 3.2.2. Các trang 1.3/2.3 dùng lại các lớp, bổ sung phương thức phân tích theo 3.2.3. Tổng 18 lớp dữ liệu/nghiệp vụ gồm 16 thực thể lưu trữ và 2 lớp kết quả; database vẫn 16 bảng.
+
+Đơn trực tuyến mới gắn với hồ sơ thành viên theo số điện thoại giao hàng. Giao dịch tại quầy có thể không gắn hồ sơ khách hàng. Một hồ sơ thành viên có thể gắn với nhiều đơn.

@@ -11,12 +11,12 @@ Tên lớp bằng tiếng Anh, kết thúc bằng số 1. Thuộc tính private 
 | Module | Giao diện thực tế | Lớp biên đề xuất |
 | --- | --- | --- |
 | Đăng ký thành viên | index.jsp ở trạng thái khách | CustomerHomeView1 |
-| Đăng ký thành viên | gdDangKyThanhVien.jsp | MemberRegistrationView1 |
+| Đăng ký thành viên | gdMemberRegistration.jsp | MemberRegistrationView1 |
 | Thống kê hàng hóa | index.jsp ở trạng thái quản lý | ManagerHomeView1 |
-| Thống kê hàng hóa | gdChonThongKe.jsp | StatisticsMenuView1 |
-| Thống kê hàng hóa | gdThongKeHangHoa.jsp: nhập ngày và xem kết quả cùng trang | ItemStatisticsView1 |
-| Thống kê hàng hóa | gdChiTietHangHoa.jsp: thông tin hàng và danh sách giao dịch cùng trang | ItemDetailsView1 |
-| Hỗ trợ điều kiện đăng nhập | gdDangNhapQuanLy.jsp | ManagerLoginView1 |
+| Thống kê hàng hóa | gdStatisticsMenu.jsp | StatisticsMenuView1 |
+| Thống kê hàng hóa | gdItemStatistics.jsp: nhập ngày và xem kết quả cùng trang | ItemStatisticsView1 |
+| Thống kê hàng hóa | gdItemDetails.jsp: thông tin hàng và danh sách giao dịch cùng trang | ItemDetailsView1 |
+| Hỗ trợ điều kiện đăng nhập | gdManagerLogin.jsp | ManagerLoginView1 |
 
 Không tạo riêng giao diện báo thành công: code hiển thị kết quả đăng ký ngay trên trang đăng ký. Không tách giao diện nhập ngày khỏi giao diện kết quả, cũng không tách danh sách giao dịch thành trang mới vì code gộp các phần này trên cùng trang.
 
@@ -33,7 +33,7 @@ index.jsp ở trạng thái khách chưa đăng nhập; liên kết Đăng ký v
 
 ### MemberRegistrationView1
 
-gdDangKyThanhVien.jsp; lỗi và thành công được hiển thị trên cùng giao diện, không tạo trang kết quả giả định.
+gdMemberRegistration.jsp; lỗi và thành công được hiển thị trên cùng giao diện, không tạo trang kết quả giả định.
 
 - `inFullName`.
 - `inPhone`.
@@ -52,13 +52,13 @@ index.jsp khi quản lý đã đăng nhập; liên kết Mở báo cáo.
 
 ### StatisticsMenuView1
 
-gdChonThongKe.jsp hiện có một liên kết Chọn báo cáo, không có hộp chọn loại thống kê.
+gdStatisticsMenu.jsp hiện có một liên kết Chọn báo cáo, không có hộp chọn loại thống kê.
 
 - `subSelectItemStatistics`.
 
 ### ItemStatisticsView1
 
-gdThongKeHangHoa.jsp; cùng một trang nhập ngày và hiển thị kết quả. Tên hàng trong bảng là liên kết mở chi tiết.
+gdItemStatistics.jsp; cùng một trang nhập ngày và hiển thị kết quả. Tên hàng trong bảng là liên kết mở chi tiết.
 
 - `inStartDate`.
 - `inEndDate`.
@@ -71,7 +71,7 @@ gdThongKeHangHoa.jsp; cùng một trang nhập ngày và hiển thị kết qu�
 
 ### ItemDetailsView1
 
-gdChiTietHangHoa.jsp; bảng giao dịch chỉ hiển thị, không có thao tác mở tiếp từng giao dịch.
+gdItemDetails.jsp; bảng giao dịch chỉ hiển thị, không có thao tác mở tiếp từng giao dịch.
 
 - `outItem`.
 - `outPeriod`.
@@ -82,7 +82,7 @@ gdChiTietHangHoa.jsp; bảng giao dịch chỉ hiển thị, không có thao tá
 
 ### ManagerLoginView1
 
-gdDangNhapQuanLy.jsp; chức năng hỗ trợ điều kiện quản lý đã đăng nhập.
+gdManagerLogin.jsp; chức năng hỗ trợ điều kiện quản lý đã đăng nhập.
 
 - `inIdentifier`.
 - `inPassword`.
@@ -95,12 +95,12 @@ Bảng thống kê có liên kết trên tên hàng nên dùng `outsubItemStatis
 
 | Chức năng | Input | Output | Phương thức và lớp được gán | Ánh xạ code hiện tại |
 | --- | --- | --- | --- | --- |
-| validateRegistration | Thông tin họ tên, điện thoại, email, địa chỉ và mật khẩu nhập | Danh sách lỗi theo trường hoặc hợp lệ | Customer1.validateRegistration() | doDangKyThanhVien.jsp kiểm tra và chuẩn hóa dữ liệu trước khi tạo record Customer1. |
-| register | Thông tin khách hàng hợp lệ | Kết quả tạo thành viên hoặc trùng điện thoại/email; lỗi lưu được xử lý riêng | Customer1.register() | doDangKyThanhVien.jsp → CustomerDAO1.register(Customer1); is_member = true, created_at do database cấp. |
-| getItemStatistics | Ngày bắt đầu, ngày kết thúc | Danh sách ItemStatistics1 | ItemStatistics1.getItemStatistics() | gdThongKeHangHoa.jsp → ItemRevenueDAO1.summarize(from, to), thực tế trả List<ItemRevenue1>; ItemStatistics1 là khái niệm phân tích. |
-| getItemDetails | Hàng hóa được chọn (định danh hàng hóa) | Thông tin Item1 hoặc không tìm thấy | Item1.getItemDetails() | gdChiTietHangHoa.jsp → ItemRevenueDAO1.findItem(itemId). |
-| getRelatedTransactions | Hàng hóa được chọn, ngày bắt đầu, ngày kết thúc | Danh sách RelatedTransaction1 | RelatedTransaction1.getRelatedTransactions() | gdChiTietHangHoa.jsp → ItemRevenueDAO1.findTransactions(itemId, from, to). Đây là dữ liệu kết quả bán/hoàn, không phải bảng mới. |
-| authenticate | Tên đăng nhập hoặc mã nhân viên, mật khẩu | Nhân viên quản lý được xác thực hoặc không hợp lệ | Employee1.authenticate() | doDangNhapQuanLy.jsp → ManagerDAO1.authenticate(identifier, password); code trả Optional<Long> mã định danh quản lý. |
+| validateRegistration | Thông tin họ tên, điện thoại, email, địa chỉ và mật khẩu nhập | Danh sách lỗi theo trường hoặc hợp lệ | Customer1.validateRegistration() | doMemberRegistration.jsp kiểm tra và chuẩn hóa dữ liệu trước khi tạo record Customer1. |
+| register | Thông tin khách hàng hợp lệ | Kết quả tạo thành viên hoặc trùng điện thoại/email; lỗi lưu được xử lý riêng | Customer1.register() | doMemberRegistration.jsp → CustomerDAO1.register(Customer1); is_member = true, created_at do database cấp. |
+| getItemStatistics | Ngày bắt đầu, ngày kết thúc | Danh sách ItemStatistics1 | ItemStatistics1.getItemStatistics() | gdItemStatistics.jsp → ItemRevenueDAO1.summarize(from, to), thực tế trả List<ItemRevenue1>; ItemStatistics1 là khái niệm phân tích. |
+| getItemDetails | Hàng hóa được chọn (định danh hàng hóa) | Thông tin Item1 hoặc không tìm thấy | Item1.getItemDetails() | gdItemDetails.jsp → ItemRevenueDAO1.findItem(itemId). |
+| getRelatedTransactions | Hàng hóa được chọn, ngày bắt đầu, ngày kết thúc | Danh sách RelatedTransaction1 | RelatedTransaction1.getRelatedTransactions() | gdItemDetails.jsp → ItemRevenueDAO1.findTransactions(itemId, from, to). Đây là dữ liệu kết quả bán/hoàn, không phải bảng mới. |
+| authenticate | Tên đăng nhập hoặc mã nhân viên, mật khẩu | Nhân viên quản lý được xác thực hoặc không hợp lệ | Employee1.authenticate() | doManagerLogin.jsp → ManagerDAO1.authenticate(identifier, password); code trả Optional<Long> mã định danh quản lý. |
 | hasReportAccess | Nhân viên trong phiên đăng nhập | Có hoặc không có quyền xem báo cáo | Employee1.hasReportAccess() | report-get.jspf → ManagerDAO1.hasReportAccess(employeeId); áp dụng cho mọi trang báo cáo. |
 
 ### Cơ sở gán phương thức

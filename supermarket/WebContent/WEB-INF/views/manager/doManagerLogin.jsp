@@ -45,5 +45,5 @@
     request.setAttribute("identifier", identifier);
     request.setAttribute("loginError", error);
     response.setStatus(status);
-    request.getRequestDispatcher("/WEB-INF/views/quanly/gdDangNhapQuanLy.jsp").forward(request, response);
+    request.getRequestDispatcher("/WEB-INF/views/manager/gdManagerLogin.jsp").forward(request, response);
 %>

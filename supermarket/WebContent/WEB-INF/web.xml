@@ -5,67 +5,67 @@
          version="6.0">
     <!-- Map the existing URLs directly to their JSP pages. -->
     <servlet>
-        <servlet-name>gdDangKyThanhVien</servlet-name>
-        <jsp-file>/WEB-INF/views/khachhang/gdDangKyThanhVien.jsp</jsp-file>
+        <servlet-name>gdMemberRegistration</servlet-name>
+        <jsp-file>/WEB-INF/views/customer/gdMemberRegistration.jsp</jsp-file>
     </servlet>
     <servlet>
-        <servlet-name>doDangKyThanhVien</servlet-name>
-        <jsp-file>/WEB-INF/views/khachhang/doDangKyThanhVien.jsp</jsp-file>
+        <servlet-name>doMemberRegistration</servlet-name>
+        <jsp-file>/WEB-INF/views/customer/doMemberRegistration.jsp</jsp-file>
     </servlet>
     <servlet>
-        <servlet-name>gdChonThongKe</servlet-name>
-        <jsp-file>/WEB-INF/views/quanly/gdChonThongKe.jsp</jsp-file>
+        <servlet-name>gdStatisticsMenu</servlet-name>
+        <jsp-file>/WEB-INF/views/manager/gdStatisticsMenu.jsp</jsp-file>
     </servlet>
     <servlet>
-        <servlet-name>gdThongKeHangHoa</servlet-name>
-        <jsp-file>/WEB-INF/views/quanly/gdThongKeHangHoa.jsp</jsp-file> 
+        <servlet-name>gdItemStatistics</servlet-name>
+        <jsp-file>/WEB-INF/views/manager/gdItemStatistics.jsp</jsp-file>
     </servlet>
     <servlet>
-        <servlet-name>gdChiTietHangHoa</servlet-name>
-        <jsp-file>/WEB-INF/views/quanly/gdChiTietHangHoa.jsp</jsp-file>
+        <servlet-name>gdItemDetails</servlet-name>
+        <jsp-file>/WEB-INF/views/manager/gdItemDetails.jsp</jsp-file>
     </servlet>
     <servlet>
-        <servlet-name>gdDangNhapQuanLy</servlet-name>
-        <jsp-file>/WEB-INF/views/quanly/gdDangNhapQuanLy.jsp</jsp-file>
+        <servlet-name>gdManagerLogin</servlet-name>
+        <jsp-file>/WEB-INF/views/manager/gdManagerLogin.jsp</jsp-file>
     </servlet>
     <servlet>
-        <servlet-name>doDangNhapQuanLy</servlet-name>
-        <jsp-file>/WEB-INF/views/quanly/doDangNhapQuanLy.jsp</jsp-file>
+        <servlet-name>doManagerLogin</servlet-name>
+        <jsp-file>/WEB-INF/views/manager/doManagerLogin.jsp</jsp-file>
     </servlet>
     <servlet>
-        <servlet-name>doDangXuatQuanLy</servlet-name>
-        <jsp-file>/WEB-INF/views/quanly/doDangXuatQuanLy.jsp</jsp-file>
+        <servlet-name>doManagerLogout</servlet-name>
+        <jsp-file>/WEB-INF/views/manager/doManagerLogout.jsp</jsp-file>
     </servlet>
     <servlet-mapping>
-        <servlet-name>gdDangKyThanhVien</servlet-name>
+        <servlet-name>gdMemberRegistration</servlet-name>
         <url-pattern>/dang-ky</url-pattern>
     </servlet-mapping>
     <servlet-mapping>
-        <servlet-name>doDangKyThanhVien</servlet-name>
+        <servlet-name>doMemberRegistration</servlet-name>
         <url-pattern>/dang-ky/luu</url-pattern>
     </servlet-mapping>
     <servlet-mapping>
-        <servlet-name>gdChonThongKe</servlet-name>
+        <servlet-name>gdStatisticsMenu</servlet-name>
         <url-pattern>/bao-cao</url-pattern>
     </servlet-mapping>
     <servlet-mapping>
-        <servlet-name>gdThongKeHangHoa</servlet-name>
+        <servlet-name>gdItemStatistics</servlet-name>
         <url-pattern>/thong-ke/hang-hoa</url-pattern>
     </servlet-mapping>
     <servlet-mapping>
-        <servlet-name>gdChiTietHangHoa</servlet-name>
+        <servlet-name>gdItemDetails</servlet-name>
         <url-pattern>/thong-ke/hang-hoa/chi-tiet</url-pattern>
     </servlet-mapping>
     <servlet-mapping>
-        <servlet-name>gdDangNhapQuanLy</servlet-name>
+        <servlet-name>gdManagerLogin</servlet-name>
         <url-pattern>/quan-ly/dang-nhap</url-pattern>
     </servlet-mapping>
     <servlet-mapping>
-        <servlet-name>doDangNhapQuanLy</servlet-name>
+        <servlet-name>doManagerLogin</servlet-name>
         <url-pattern>/quan-ly/dang-nhap/xu-ly</url-pattern>
     </servlet-mapping>
     <servlet-mapping>
-        <servlet-name>doDangXuatQuanLy</servlet-name>
+        <servlet-name>doManagerLogout</servlet-name>
         <url-pattern>/quan-ly/dang-xuat</url-pattern>
     </servlet-mapping>
     <session-config>

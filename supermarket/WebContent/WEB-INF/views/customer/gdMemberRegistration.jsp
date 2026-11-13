@@ -9,7 +9,7 @@
     response.setHeader("Cache-Control", "no-store");
     Map<?, ?> errors = (Map<?, ?>) request.getAttribute("errors");
     if ("POST".equals(request.getMethod()) && errors == null) {
-        request.getRequestDispatcher("/WEB-INF/views/khachhang/doDangKyThanhVien.jsp").forward(request, response);
+        request.getRequestDispatcher("/WEB-INF/views/customer/doMemberRegistration.jsp").forward(request, response);
         return;
     }
     if (errors == null) {

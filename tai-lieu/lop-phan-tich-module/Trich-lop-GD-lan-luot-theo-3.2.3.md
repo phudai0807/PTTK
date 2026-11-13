@@ -13,7 +13,7 @@ Mỗi bước được thể hiện bằng một trang VPP. Bước 1 chỉ hi�
 ### Bước 1: Từ giao diện đề xuất lớp biên
 
 - Ban đầu, giao diện chính của khách hàng → đề xuất **GDCustomerHome1**. Nguồn: `index.jsp` khi chưa đăng nhập quản lý.
-- Sau khi chọn đăng ký thành viên, giao diện nhập thông tin đăng ký → đề xuất **GDMemberRegistration1**. Nguồn: `gdDangKyThanhVien.jsp`.
+- Sau khi chọn đăng ký thành viên, giao diện nhập thông tin đăng ký → đề xuất **GDMemberRegistration1**. Nguồn: `gdMemberRegistration.jsp`.
 - Thành công và lỗi được hiển thị ngay trên trang đăng ký, vì vậy vẫn là **GDMemberRegistration1**, không tạo giao diện kết quả riêng.
 
 Trang VPP tương ứng: **1.1 Registration - Step 1**.
@@ -36,7 +36,7 @@ Trang VPP tương ứng: **1.1 Registration - Step 1**.
 - Thông báo thành công hoặc lỗi chung: output → `outMessage`.
 - Thông báo lỗi theo từng trường: output → `outFieldErrors`.
 
-Nguồn trực tiếp là các input `fullName`, `phone`, `email`, `password`, textarea `address`, nút submit Thêm và vùng thông báo trong `gdDangKyThanhVien.jsp`. Không đề xuất nút xác nhận mật khẩu hoặc nút lưu khác vì giao diện hiện không có.
+Nguồn trực tiếp là các input `fullName`, `phone`, `email`, `password`, textarea `address`, nút submit Thêm và vùng thông báo trong `gdMemberRegistration.jsp`. Không đề xuất nút xác nhận mật khẩu hoặc nút lưu khác vì giao diện hiện không có.
 
 Trang VPP tương ứng: **1.2 Registration - Step 2**.
 
@@ -49,7 +49,7 @@ Trang VPP tương ứng: **1.2 Registration - Step 2**.
 - Output: danh sách lỗi theo trường hoặc kết quả hợp lệ.
 - Đề xuất phương thức `validateRegistration()`, gán cho **Customer1**.
 - Cơ sở: đầu ra là kết quả kiểm tra, không xác định thực thể khác; đầu vào đều là thông tin khách hàng.
-- Đối chiếu code: các điều kiện kiểm tra, chuẩn hóa số điện thoại/email trong `doDangKyThanhVien.jsp`.
+- Đối chiếu code: các điều kiện kiểm tra, chuẩn hóa số điện thoại/email trong `doMemberRegistration.jsp`.
 
 **Sau khi thông tin hợp lệ, cần xử lý lưu thành viên:**
 
@@ -58,7 +58,7 @@ Trang VPP tương ứng: **1.2 Registration - Step 2**.
 - Output: kết quả tạo thành viên, trùng điện thoại/email hoặc lỗi lưu.
 - Đề xuất phương thức `register()`, gán cho **Customer1**.
 - Cơ sở: đầu vào liên quan một thực thể khách hàng; đầu ra là kết quả thao tác lưu.
-- Đối chiếu code: `doDangKyThanhVien.jsp` tạo `Customer1`, gọi `CustomerDAO1.register(customer)`; bảng `customers1` lưu dữ liệu, `is_member = true`, `created_at` do database cấp.
+- Đối chiếu code: `doMemberRegistration.jsp` tạo `Customer1`, gọi `CustomerDAO1.register(customer)`; bảng `customers1` lưu dữ liệu, `is_member = true`, `created_at` do database cấp.
 
 **Vẽ sơ đồ module:** hàng trên là `GDCustomerHome1` liên kết `GDMemberRegistration1`; phía dưới giao diện đăng ký là `Customer1`, có hai phương thức `+validateRegistration()` và `+register()`. Các thuộc tính của Customer1 giữ như sơ đồ thực thể 3.2.2. Thông báo kết quả trả về cùng giao diện đăng ký; đường nối là liên kết lớp, không phải mũi tên tuần tự.
 
@@ -71,9 +71,9 @@ Trang VPP tương ứng: **1.3 Registration - Final analysis**.
 ### Bước 1: Từ giao diện đề xuất lớp biên
 
 - Ban đầu, giao diện chính của quản lý → đề xuất **GDManagerHome1**. Nguồn: `index.jsp` ở trạng thái quản lý đã đăng nhập.
-- Khi chọn mở báo cáo, giao diện chọn báo cáo thống kê → đề xuất **GDStatisticsMenu1**. Nguồn: `gdChonThongKe.jsp`.
-- Khi chọn thống kê hàng hóa, giao diện nhập khoảng ngày và hiển thị kết quả → đề xuất **GDItemStatistics1**. Nguồn: `gdThongKeHangHoa.jsp`; nhập ngày và bảng kết quả nằm trên cùng trang.
-- Khi chọn một hàng hóa, giao diện thông tin hàng và danh sách giao dịch liên quan → đề xuất **GDItemDetails1**. Nguồn: `gdChiTietHangHoa.jsp`; hai phần này cũng nằm trên cùng trang.
+- Khi chọn mở báo cáo, giao diện chọn báo cáo thống kê → đề xuất **GDStatisticsMenu1**. Nguồn: `gdStatisticsMenu.jsp`.
+- Khi chọn thống kê hàng hóa, giao diện nhập khoảng ngày và hiển thị kết quả → đề xuất **GDItemStatistics1**. Nguồn: `gdItemStatistics.jsp`; nhập ngày và bảng kết quả nằm trên cùng trang.
+- Khi chọn một hàng hóa, giao diện thông tin hàng và danh sách giao dịch liên quan → đề xuất **GDItemDetails1**. Nguồn: `gdItemDetails.jsp`; hai phần này cũng nằm trên cùng trang.
 
 Trang VPP tương ứng: **2.1 Item statistics - Step 1**.
 
@@ -122,7 +122,7 @@ Trang VPP tương ứng: **2.2 Item statistics - Step 2**.
 - Output: danh sách dữ liệu thống kê hàng hóa.
 - Đề xuất phương thức `getItemStatistics()`, gán cho **ItemStatistics1**.
 - Cơ sở: đầu ra liên quan lớp thống kê hàng hóa.
-- Đối chiếu code: `gdThongKeHangHoa.jsp` gọi `ItemRevenueDAO1.summarize(from, to)`, trả `List<ItemRevenue1>`. Trong mô hình phân tích đã thống nhất, khái niệm tương ứng là `ItemStatistics1` kế thừa `Item1`.
+- Đối chiếu code: `gdItemStatistics.jsp` gọi `ItemRevenueDAO1.summarize(from, to)`, trả `List<ItemRevenue1>`. Trong mô hình phân tích đã thống nhất, khái niệm tương ứng là `ItemStatistics1` kế thừa `Item1`.
 
 **Để có thông tin hàng hóa khi người dùng chọn tên hàng, cần xử lý:**
 
@@ -131,7 +131,7 @@ Trang VPP tương ứng: **2.2 Item statistics - Step 2**.
 - Output: `Item1` hoặc không tìm thấy.
 - Đề xuất phương thức `getItemDetails()`, gán cho **Item1**.
 - Cơ sở: đầu ra là thông tin hàng hóa.
-- Đối chiếu code: `gdChiTietHangHoa.jsp` gọi `ItemRevenueDAO1.findItem(itemId)`; dữ liệu gốc từ `items1`.
+- Đối chiếu code: `gdItemDetails.jsp` gọi `ItemRevenueDAO1.findItem(itemId)`; dữ liệu gốc từ `items1`.
 
 **Để có bảng giao dịch liên quan của hàng hóa, cần xử lý:**
 
@@ -140,7 +140,7 @@ Trang VPP tương ứng: **2.2 Item statistics - Step 2**.
 - Output: danh sách `RelatedTransaction1`.
 - Đề xuất phương thức `getRelatedTransactions()`, gán cho **RelatedTransaction1**.
 - Cơ sở: đầu ra là các dòng kết quả giao dịch liên quan.
-- Đối chiếu code: `gdChiTietHangHoa.jsp` gọi `ItemRevenueDAO1.findTransactions(itemId, from, to)`. `RelatedTransaction1` là record kết quả truy vấn bán/hoàn, không có bảng riêng và không phải lớp con của `SaleTransaction1`.
+- Đối chiếu code: `gdItemDetails.jsp` gọi `ItemRevenueDAO1.findTransactions(itemId, from, to)`. `RelatedTransaction1` là record kết quả truy vấn bán/hoàn, không có bảng riêng và không phải lớp con của `SaleTransaction1`.
 
 **Vẽ sơ đồ module:** hàng trên gồm bốn lớp GD theo thứ tự mở giao diện. Dưới `GDItemStatistics1` là `ItemStatistics1`; dưới giao diện chi tiết là các lớp cung cấp dữ liệu `Item1`, `RelatedTransaction1`. Giữ quan hệ kế thừa `ItemStatistics1`–`Item1` và các quan hệ thực thể liên quan đến nhà cung cấp, phiếu nhập, hàng hóa, giao dịch bán, chi tiết bán và hoàn tiền như sơ đồ 3.2.2. Không đổi association thành composition chỉ vì có khóa ngoại. Các dependency của RelatedTransaction1 biểu diễn nguồn dữ liệu kết quả, không tạo khóa ngoại mới.
 

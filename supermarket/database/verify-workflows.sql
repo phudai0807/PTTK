@@ -3,6 +3,124 @@ BEGIN;
 
 DO $$
 DECLARE
+    product_id bigint := (SELECT id FROM items1 WHERE item_code = 'HH001');
+    cashier_id bigint := (SELECT id FROM employees1 WHERE employee_code = 'BH01');
+    first_order bigint;
+    next_order bigint;
+    member_id bigint;
+    counter_id bigint;
+    challenge_id uuid := '10000000-0000-4000-8000-000000000001';
+    new_challenge_id uuid := '10000000-0000-4000-8000-000000000002';
+    next_challenge_id uuid := '10000000-0000-4000-8000-000000000003';
+    code_digest bytea := sha256(convert_to('QA code proof', 'UTF8'));
+    wrong_code_digest bytea := sha256(convert_to('QA wrong proof', 'UTF8'));
+    setup_digest bytea := sha256(convert_to('QA setup proof', 'UTF8'));
+    sample_password_hash text := 'pbkdf2-sha256$600000$' || repeat('A', 22) || '==$' || repeat('A', 43) || '=';
+BEGIN
+    first_order := place_online_order1('QA-PHONE-ORDER', 'QA delivery', '0900000551',
+        'QA address', ARRAY[product_id], ARRAY[1]);
+    SELECT id INTO STRICT member_id FROM customers1
+    WHERE phone = '0900000551' AND is_member AND email IS NULL AND password_hash IS NULL;
+    ASSERT EXISTS (SELECT 1 FROM online_orders1 WHERE id = first_order AND customer_id = member_id
+        AND delivery_name = 'QA delivery' AND status = 'PENDING');
+    ASSERT EXISTS (SELECT 1 FROM online_order_details1 WHERE order_id = first_order AND item_id = product_id);
+
+    next_order := place_online_order1('QA-PHONE-REPEAT', 'Second recipient', '+84900000551',
+        'Another address', ARRAY[product_id], ARRAY[1]);
+    ASSERT EXISTS (SELECT 1 FROM online_orders1 WHERE id = next_order AND customer_id = member_id);
+    ASSERT EXISTS (SELECT 1 FROM customers1 WHERE id = member_id
+        AND full_name = 'QA delivery' AND address = 'QA address');
+
+    counter_id := record_counter_sale('QA-PHONE-COUNTER', cashier_id, timestamp '2026-11-14 09:00',
+        jsonb_build_array(jsonb_build_object('item_id', product_id, 'quantity', 1, 'unit_price', 38000)),
+        NULL, '0900000553');
+    ASSERT EXISTS (SELECT 1 FROM sale_transactions1 sale JOIN customers1 c ON c.id = sale.customer_id
+        WHERE sale.id = counter_id AND c.phone = '0900000553' AND c.is_member AND c.email IS NULL
+          AND c.address IS NULL AND c.password_hash IS NULL);
+    next_order := place_online_order1('QA-COUNTER-TO-ONLINE', 'Recipient', '+84900000553',
+        'QA address', ARRAY[product_id], ARRAY[1]);
+    ASSERT EXISTS (SELECT 1 FROM online_orders1 orders JOIN sale_transactions1 sale
+        ON orders.customer_id = sale.customer_id WHERE orders.id = next_order AND sale.id = counter_id);
+    counter_id := record_counter_sale('QA-ANONYMOUS-COUNTER', cashier_id, timestamp '2026-11-14 09:00',
+        jsonb_build_array(jsonb_build_object('item_id', product_id, 'quantity', 1, 'unit_price', 38000)));
+    ASSERT EXISTS (SELECT 1 FROM sale_transactions1 WHERE id = counter_id AND customer_id IS NULL);
+
+    ASSERT register_member1('QA web', '0900000554', 'qa-web-member@example.test', 'QA address', 'QA hash') = 1;
+    ASSERT register_member1('QA duplicate', '0900000551', 'qa-web-duplicate@example.test', 'QA address', 'QA hash') = 2;
+
+    ASSERT begin_member_account_setup1('0900000554', challenge_id, code_digest) = 'INELIGIBLE';
+    ASSERT begin_member_account_setup1('0900000599', challenge_id, code_digest) = 'INELIGIBLE';
+    ASSERT begin_member_account_setup1('+84900000551', challenge_id, code_digest) = 'ISSUED';
+    ASSERT begin_member_account_setup1('0900000551', new_challenge_id, code_digest) = 'RATE_LIMITED';
+    ASSERT complete_member_account_setup1(challenge_id, setup_digest, 'qa-setup@example.test', sample_password_hash)
+        = 'INVALID_CHALLENGE';
+
+    FOR attempt IN 1..5 LOOP
+        ASSERT verify_member_account_phone1(challenge_id, wrong_code_digest, setup_digest) = 'INCORRECT_CODE';
+    END LOOP;
+    ASSERT verify_member_account_phone1(challenge_id, code_digest, setup_digest) = 'ATTEMPTS_EXHAUSTED';
+    UPDATE member_account_verifications1
+    SET issued_at = clock_timestamp() - interval '2 minutes',
+        request_window_started_at = clock_timestamp() - interval '6 minutes',
+        requests_in_window = 5
+    WHERE customer_id = member_id;
+    ASSERT begin_member_account_setup1('0900000551', new_challenge_id, code_digest) = 'RATE_LIMITED';
+    UPDATE member_account_verifications1
+    SET issued_at = clock_timestamp() - interval '6 minutes',
+        request_window_started_at = clock_timestamp() - interval '61 minutes'
+    WHERE customer_id = member_id;
+    ASSERT verify_member_account_phone1(challenge_id, code_digest, setup_digest) = 'EXPIRED';
+    ASSERT begin_member_account_setup1('0900000551', new_challenge_id, code_digest) = 'ISSUED';
+    ASSERT verify_member_account_phone1(challenge_id, code_digest, setup_digest) = 'INVALID_CHALLENGE';
+    ASSERT verify_member_account_phone1(new_challenge_id, code_digest, setup_digest) = 'VERIFIED';
+    ASSERT verify_member_account_phone1(new_challenge_id, code_digest, setup_digest) = 'INVALID_CHALLENGE';
+    ASSERT complete_member_account_setup1(new_challenge_id, wrong_code_digest, 'qa-setup@example.test',
+        sample_password_hash) = 'INVALID_CHALLENGE';
+    UPDATE member_account_verifications1
+    SET issued_at = clock_timestamp() - interval '12 minutes',
+        request_window_started_at = clock_timestamp() - interval '12 minutes 10 seconds',
+        verified_at = clock_timestamp() - interval '11 minutes'
+    WHERE customer_id = member_id;
+    ASSERT complete_member_account_setup1(new_challenge_id, setup_digest, 'qa-setup@example.test', sample_password_hash)
+        = 'EXPIRED';
+    ASSERT begin_member_account_setup1('0900000551', next_challenge_id, code_digest) = 'ISSUED';
+    ASSERT verify_member_account_phone1(next_challenge_id, code_digest, setup_digest) = 'VERIFIED';
+    ASSERT complete_member_account_setup1(next_challenge_id, setup_digest, 'QA-Web-Member@example.test',
+        sample_password_hash) = 'DUPLICATE_EMAIL';
+    ASSERT complete_member_account_setup1(next_challenge_id, setup_digest, 'qa-setup@example.test',
+        'not-a-password-hash') = 'INVALID_CREDENTIALS';
+    ASSERT complete_member_account_setup1(next_challenge_id, setup_digest, ' QA-Setup@Example.Test ',
+        sample_password_hash) = 'COMPLETED';
+    ASSERT complete_member_account_setup1(next_challenge_id, setup_digest, 'qa-other@example.test',
+        sample_password_hash) = 'INVALID_CHALLENGE';
+    ASSERT EXISTS (SELECT 1 FROM customers1 c WHERE c.id = member_id AND c.email = 'qa-setup@example.test'
+        AND c.account_setup_at IS NOT NULL AND c.full_name = 'QA delivery' AND c.address = 'QA address');
+    ASSERT EXISTS (SELECT 1 FROM find_member_account1(' QA-SETUP@example.test ') account
+        WHERE account.customer_id = member_id AND account.password_hash = sample_password_hash);
+    ASSERT EXISTS (SELECT 1 FROM online_orders1 WHERE id = first_order AND customer_id = member_id);
+    ASSERT NOT EXISTS (SELECT 1 FROM member_account_verifications1 WHERE customer_id = member_id);
+    ASSERT begin_member_account_setup1('0900000551', challenge_id, code_digest) = 'INELIGIBLE';
+
+    BEGIN
+        PERFORM place_online_order1('QA-PHONE-ORDER', 'QA rollback', '0900000552',
+            'QA address', ARRAY[product_id], ARRAY[1]);
+        RAISE EXCEPTION 'Duplicate order code was accepted.';
+    EXCEPTION WHEN unique_violation THEN
+        ASSERT NOT EXISTS (SELECT 1 FROM customers1 WHERE phone = '0900000552');
+    END;
+
+    BEGIN
+        PERFORM place_online_order1('QA-BAD-PHONE', 'QA invalid', '123',
+            'QA address', ARRAY[product_id], ARRAY[1]);
+        RAISE EXCEPTION 'An invalid phone number was accepted.';
+    EXCEPTION WHEN SQLSTATE 'P1003' THEN
+        ASSERT NOT EXISTS (SELECT 1 FROM online_orders1 WHERE order_code = 'QA-BAD-PHONE');
+    END;
+END;
+$$;
+
+DO $$
+DECLARE
     warehouse_id bigint := (SELECT id FROM employees1 WHERE employee_code = 'KHO01');
     delivery_id bigint := (SELECT id FROM employees1 WHERE employee_code = 'GH01');
     saler_id bigint := (SELECT id FROM employees1 WHERE employee_code = 'BH01');
