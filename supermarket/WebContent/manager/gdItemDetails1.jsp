@@ -45,7 +45,7 @@
     if (error != null) {
         response.setStatus(status);
         request.setAttribute("error", error);
-        request.getRequestDispatcher("/WEB-INF/views/manager/gdItemStatistics1.jsp").forward(request, response);
+        request.getRequestDispatcher("/manager/gdItemStatistics1.jsp").forward(request, response);
         return;
     }
     request.setAttribute("from", fromInput);

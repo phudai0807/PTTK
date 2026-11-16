@@ -84,5 +84,5 @@
     request.setAttribute("token", token);
     request.setAttribute("errors", errors);
     response.setStatus(status);
-    request.getRequestDispatcher("/WEB-INF/views/customer/gdMemberRegistration1.jsp").forward(request, response);
+    request.getRequestDispatcher("/customer/gdMemberRegistration1.jsp").forward(request, response);
 %>
