@@ -1,7 +1,9 @@
 package vn.pttk.supermarket.dao;
 
 import vn.pttk.supermarket.web.PasswordHash1;
+import vn.pttk.supermarket.model.ManagementStaff1;
 import java.sql.CallableStatement;
+import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -16,6 +18,7 @@ public class ManagerDAO1 extends DAO1 {
         String sql = "{? = call find_management_account1(?, ?)}";
         synchronized (DAO1.class) {
             ensureConnection();
+            Connection con = getConnection();
             try (CallableStatement statement = con.prepareCall(sql)) {
                 statement.registerOutParameter(1, Types.OTHER);
                 statement.setString(2, identifier.toUpperCase(Locale.ROOT));
@@ -28,8 +31,13 @@ public class ManagerDAO1 extends DAO1 {
                         String role = rows.getString("role");
                         String hash = rows.getString("password_hash");
                         // The identifier must refer to exactly one management account.
-                        if (!rows.next() && "MANAGEMENT".equals(role) && PasswordHash1.matches(password, hash)) {
-                            managerId = Long.valueOf(id);
+                        if (!rows.next() && "MANAGEMENT".equals(role)) {
+                            ManagementStaff1 manager = new ManagementStaff1();
+                            manager.setId(id);
+                            manager.setPasswordHash(hash);
+                            if (PasswordHash1.matches(password, manager.getPasswordHash())) {
+                                managerId = Long.valueOf(manager.getId());
+                            }
                         }
                     }
                 }
@@ -46,6 +54,7 @@ public class ManagerDAO1 extends DAO1 {
         String sql = "{? = call has_report_access1(?)}";
         synchronized (DAO1.class) {
             ensureConnection();
+            Connection con = getConnection();
             try (CallableStatement statement = con.prepareCall(sql)) {
                 statement.registerOutParameter(1, Types.BOOLEAN);
                 statement.setLong(2, employeeId);

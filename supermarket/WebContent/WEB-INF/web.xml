@@ -6,35 +6,35 @@
     <!-- Map the existing URLs directly to their JSP pages. -->
     <servlet>
         <servlet-name>gdMemberRegistration</servlet-name>
-        <jsp-file>/WEB-INF/views/customer/gdMemberRegistration.jsp</jsp-file>
+        <jsp-file>/WEB-INF/views/customer/gdMemberRegistration1.jsp</jsp-file>
     </servlet>
     <servlet>
         <servlet-name>doMemberRegistration</servlet-name>
-        <jsp-file>/WEB-INF/views/customer/doMemberRegistration.jsp</jsp-file>
+        <jsp-file>/WEB-INF/views/customer/doMemberRegistration1.jsp</jsp-file>
     </servlet>
     <servlet>
         <servlet-name>gdStatisticsMenu</servlet-name>
-        <jsp-file>/WEB-INF/views/manager/gdStatisticsMenu.jsp</jsp-file>
+        <jsp-file>/WEB-INF/views/manager/gdStatisticsMenu1.jsp</jsp-file>
     </servlet>
     <servlet>
         <servlet-name>gdItemStatistics</servlet-name>
-        <jsp-file>/WEB-INF/views/manager/gdItemStatistics.jsp</jsp-file>
+        <jsp-file>/WEB-INF/views/manager/gdItemStatistics1.jsp</jsp-file>
     </servlet>
     <servlet>
         <servlet-name>gdItemDetails</servlet-name>
-        <jsp-file>/WEB-INF/views/manager/gdItemDetails.jsp</jsp-file>
+        <jsp-file>/WEB-INF/views/manager/gdItemDetails1.jsp</jsp-file>
     </servlet>
     <servlet>
         <servlet-name>gdManagerLogin</servlet-name>
-        <jsp-file>/WEB-INF/views/manager/gdManagerLogin.jsp</jsp-file>
+        <jsp-file>/WEB-INF/views/manager/gdManagerLogin1.jsp</jsp-file>
     </servlet>
     <servlet>
         <servlet-name>doManagerLogin</servlet-name>
-        <jsp-file>/WEB-INF/views/manager/doManagerLogin.jsp</jsp-file>
+        <jsp-file>/WEB-INF/views/manager/doManagerLogin1.jsp</jsp-file>
     </servlet>
     <servlet>
         <servlet-name>doManagerLogout</servlet-name>
-        <jsp-file>/WEB-INF/views/manager/doManagerLogout.jsp</jsp-file>
+        <jsp-file>/WEB-INF/views/manager/doManagerLogout1.jsp</jsp-file>
     </servlet>
     <servlet-mapping>
         <servlet-name>gdMemberRegistration</servlet-name>
@@ -73,4 +73,7 @@
         <cookie-config><http-only>true</http-only></cookie-config>
         <tracking-mode>COOKIE</tracking-mode>
     </session-config>
+    <welcome-file-list>
+        <welcome-file>home.jsp</welcome-file>
+    </welcome-file-list>
 </web-app>

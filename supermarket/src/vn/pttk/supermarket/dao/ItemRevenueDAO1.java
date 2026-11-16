@@ -6,6 +6,7 @@ import vn.pttk.supermarket.model.RelatedTransaction1;
 import java.math.BigDecimal;
 import java.sql.Array;
 import java.sql.CallableStatement;
+import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -22,6 +23,7 @@ public class ItemRevenueDAO1 extends DAO1 {
         String sql = "{? = call get_item_revenue1(?, ?)}";
         synchronized (DAO1.class) {
             ensureConnection();
+            Connection con = getConnection();
             ArrayList<ItemRevenue1> rows = new ArrayList<ItemRevenue1>();
             try (CallableStatement statement = con.prepareCall(sql)) {
                 statement.registerOutParameter(1, Types.OTHER);
@@ -67,6 +69,7 @@ public class ItemRevenueDAO1 extends DAO1 {
         String sql = "{? = call find_item1(?)}";
         synchronized (DAO1.class) {
             ensureConnection();
+            Connection con = getConnection();
             try (CallableStatement statement = con.prepareCall(sql)) {
                 statement.registerOutParameter(1, Types.OTHER);
                 statement.setLong(2, itemId);
@@ -96,6 +99,7 @@ public class ItemRevenueDAO1 extends DAO1 {
         String sql = "{? = call get_related_transactions1(?, ?, ?)}";
         synchronized (DAO1.class) {
             ensureConnection();
+            Connection con = getConnection();
             ArrayList<RelatedTransaction1> rows = new ArrayList<RelatedTransaction1>();
             try (CallableStatement statement = con.prepareCall(sql)) {
                 statement.registerOutParameter(1, Types.OTHER);

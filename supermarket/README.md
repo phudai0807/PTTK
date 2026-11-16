@@ -152,8 +152,8 @@ PostgreSQL lưu bản kiểm tra mã SMS và bản băm token. Chỉ cấp quy�
 
 | Module | Luồng JSP | DAO và bảng sử dụng |
 |---|---|---|
-| Đăng ký thành viên | `gdMemberRegistration.jsp` gửi biểu mẫu tới `doMemberRegistration.jsp` | JSP gọi `CustomerDAO1.register`. DAO gọi hàm `register_member1` để ghi `customers1`. |
-| Thống kê hàng hóa | `gdStatisticsMenu.jsp` → `gdItemStatistics.jsp` → `gdItemDetails.jsp` | `ItemRevenueDAO1` gọi `get_item_revenue1`, `find_item1` và `get_related_transactions1`. Các hàm đọc `items1`, `item_revenue_events1` và lịch sử nhập từ nhà cung cấp. |
+| Đăng ký thành viên | `gdMemberRegistration1.jsp` gửi biểu mẫu tới `doMemberRegistration1.jsp` | JSP gọi `CustomerDAO1.register`. DAO gọi hàm `register_member1` để ghi `customers1`. |
+| Thống kê hàng hóa | `gdStatisticsMenu1.jsp` → `gdItemStatistics1.jsp` → `gdItemDetails1.jsp` | `ItemRevenueDAO1` gọi `get_item_revenue1`, `find_item1` và `get_related_transactions1`. Các hàm đọc `items1`, `item_revenue_events1` và lịch sử nhập từ nhà cung cấp. |
 
 Mã Java nằm trong `src`, chia thành các package `model` (dữ liệu), `dao` (truy cập PostgreSQL) và `web` (tiện ích JSP). Các trang JSP được chia theo nhóm người dùng trong `WebContent/WEB-INF/views`.
 

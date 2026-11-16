@@ -5,20 +5,33 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 
 public class DAO1 {
-    // DAO methods lock DAO1.class so concurrent requests cannot share a transaction.
-    protected static Connection con;
+    // Each DAO keeps a private reference to the shared, class-locked connection.
+    private Connection con;
+    private static Connection sharedConnection;
 
     public DAO1() throws SQLException {
         ensureConnection();
     }
 
-    protected static synchronized void ensureConnection() throws SQLException {
-        if (con != null && !con.isClosed() && con.isValid(2)) {
-            return;
+    final void ensureConnection() throws SQLException {
+        synchronized (DAO1.class) {
+            if (sharedConnection != null && !sharedConnection.isClosed() && sharedConnection.isValid(2)) {
+                con = sharedConnection;
+                return;
+            }
+            if (sharedConnection != null && !sharedConnection.isClosed()) {
+                sharedConnection.close();
+            }
+            con = openConnection();
+            sharedConnection = con;
         }
-        if (con != null && !con.isClosed()) {
-            con.close();
-        }
+    }
+
+    final Connection getConnection() {
+        return con;
+    }
+
+    private static Connection openConnection() throws SQLException {
         String dbUrl = System.getenv().getOrDefault(
                 "SUPERMARKET_DB_URL", "jdbc:postgresql://127.0.0.1:5432/supermarket_pttk");
         String username = System.getenv().getOrDefault("SUPERMARKET_DB_USER", "supermarket_dev");
@@ -32,14 +45,14 @@ public class DAO1 {
         try {
             // PostgreSQL cursors must be read inside a transaction.
             connection.setAutoCommit(false);
-            con = connection;
+            return connection;
         } catch (SQLException exception) {
             connection.close();
             throw exception;
         }
     }
 
-    protected static void rollback(SQLException exception) {
+    final void rollback(SQLException exception) {
         try {
             con.rollback();
         } catch (SQLException rollbackException) {

@@ -3,3 +3,10 @@ tmp/
 target/
 build/
 .vscode/
+/.idea/
+*.iml
+*.war
+/LOCAL_APPDATA_FONTCONFIG_CACHE/
+/output/
+/tai-lieu/
+/BG HP TTTN 2 CNPM 2020 final.pdf

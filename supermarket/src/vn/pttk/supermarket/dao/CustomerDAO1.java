@@ -2,6 +2,7 @@ package vn.pttk.supermarket.dao;
 
 import vn.pttk.supermarket.model.Customer1;
 import java.sql.CallableStatement;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Types;
 
@@ -18,6 +19,7 @@ public class CustomerDAO1 extends DAO1 {
         String sql = "{? = call register_member1(?, ?, ?, ?, ?)}";
         synchronized (DAO1.class) {
             ensureConnection();
+            Connection con = getConnection();
             try (CallableStatement statement = con.prepareCall(sql)) {
                 statement.registerOutParameter(1, Types.INTEGER);
                 statement.setString(2, customer.getFullName());
